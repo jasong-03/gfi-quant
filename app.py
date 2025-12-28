@@ -287,20 +287,35 @@ def get_endpoint_list():
         
     return sorted(endpoints, key=get_sort_key)
 
-def load_dune_query(chain, address):
+def load_dune_query(chain, address, period):
     try:
-        with open('dashboard_builder_v4/delta_balance_change_dune_query.txt', 'r') as f:
+        # Use relative path for robustness
+        query_path = Path(__file__).parent / "delta_balance_change_dune_query.txt"
+        with open(query_path, 'r') as f:
             query_sql = f.read()
         
         # Format parameters
         contract_addr_sql = f"'{address}'"
-        # Map generic chain name to Dune table compatible name if needed
-        # For 'prices.day', 'solana' is likely 'solana'.
         chain_sql = f"'{chain.lower()}'" 
         
-        # Simple time filter: last 90 days
-        time_filter_clause_day = "AND day > now() - interval '90' day"
-        time_filter_clause_timestamp = "AND timestamp > now() - interval '90' day"
+        # Period Mapping
+        # 3 months, 6 months, 1 year, All
+        interval_val = None
+        if "3" in period:
+            interval_val = "3"
+        elif "6" in period:
+            interval_val = "6"
+        elif "1" in period or "year" in period:
+            interval_val = "12"
+        # else "All" -> None
+
+        if interval_val:
+            # Fix Trino/Dune SQL interval syntax: interval '3' month
+            time_filter_clause_day = f"AND day >= now() - interval '{interval_val}' month"
+            time_filter_clause_timestamp = f"AND timestamp >= now() - interval '{interval_val}' month"
+        else:
+            time_filter_clause_day = ""
+            time_filter_clause_timestamp = ""
         
         formatted_sql = query_sql.format(
             contract_addr_sql=contract_addr_sql,
@@ -477,7 +492,7 @@ def fetch_all_data(chain_name, contract_address, period="3 months", log_placehol
         
         # Delta Balance Change
         log_to_ui("Processing Delta Balance Change (Dune)...", "info")
-        query_sql = load_dune_query(chain_name, contract_address)
+        query_sql = load_dune_query(chain_name, contract_address, period)
         
         if query_sql:
             # Create Query
