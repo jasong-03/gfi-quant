@@ -1,0 +1,88 @@
+WITH token_bal AS (
+  SELECT
+    day,
+    address,
+    token_mint_address,
+    token_balance_owner,
+    token_balance,
+    previous_balance,
+    CASE WHEN delta >= 0 THEN 'positive' ELSE 'negative' END AS delta_label,
+    delta
+  FROM (
+    SELECT
+      day,
+      address,
+      token_mint_address,
+      token_balance_owner,
+      token_balance,
+      LAG(token_balance, 1) OVER (PARTITION BY token_balance_owner ORDER BY day) AS previous_balance,
+      token_balance - LAG(token_balance, 1) OVER (PARTITION BY token_balance_owner ORDER BY day) AS delta
+    FROM solana_utils.daily_balances
+    WHERE
+      token_mint_address = {contract_addr_sql}
+      {time_filter_clause_day}
+    ORDER BY
+      day
+  )
+), price AS (
+  SELECT
+    timestamp,
+    contract_address_varchar AS contract_address,
+    symbol,
+    source,
+    price
+  FROM prices.day
+  WHERE
+    blockchain = {chain_sql}
+    AND contract_address_varchar = {contract_addr_sql}
+    AND source = 'coinpaprika'
+    {time_filter_clause_timestamp}
+), balance_delta_detail AS (
+  SELECT
+    tb.day,
+    tb.token_mint_address,
+    tb.address,
+    tb.token_balance_owner,
+    tb.token_balance,
+    tb.previous_balance,
+    tb.delta_label,
+    tb.delta
+  FROM token_bal AS tb
+), aggregated_data AS (
+  SELECT
+    day,
+    token_mint_address,
+    SUM(delta) AS delta
+  FROM balance_delta_detail
+  GROUP BY
+    1,2
+), avg_delta AS (
+  SELECT
+    AVG(abs(case when delta>= 0 then delta end)) AS avg_positive_delta,
+    AVG(abs(case when delta < 0 then delta end)) AS avg_negative_delta
+  FROM aggregated_data
+),
+
+anomolies as
+    (SELECT
+      ad.day,
+      ad.token_mint_address,
+      CASE WHEN ad.delta >= 0 THEN 'positive' ELSE 'negative' END AS delta_label,
+      abs(ad.delta) as delta
+    FROM aggregated_data AS ad
+    CROSS JOIN avg_delta
+    WHERE
+      abs(case when delta >= 0 then delta end) >= avg_delta.avg_positive_delta
+    or abs(case when delta < 0 then delta end) >= avg_delta.avg_negative_delta)
+
+select
+    p.timestamp,
+    p.symbol,
+    p.price,
+    p.price as price_ref,
+    case when a.delta_label = 'positive' then a.delta end as positive_delta,
+    case when a.delta_label = 'negative' then a.delta end as negative_delta
+from price p 
+left join anomolies a
+    on p.timestamp = a.day
+    and p.contract_address = a.token_mint_address

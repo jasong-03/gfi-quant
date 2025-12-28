@@ -1,0 +1,9 @@
+streamlit
+pandas
+plotly
+requests
+matplotlib
+coingecko-sdk
+python-dotenv
+watchdog
+json
