@@ -1,0 +1,154 @@
+{
+  "timestamp": "2025-12-29T11:38:36.335074",
+  "results": {
+    "CoinGecko": [
+      {
+        "endpoint": "Ping",
+        "status": "PASS",
+        "detail": "OK (1 keys)"
+      },
+      {
+        "endpoint": "Simple - Price",
+        "status": "PASS",
+        "detail": "OK (2 keys)"
+      },
+      {
+        "endpoint": "Simple - Currencies",
+        "status": "PASS",
+        "detail": "OK (63 items)"
+      },
+      {
+        "endpoint": "Coins - List",
+        "status": "PASS",
+        "detail": "OK (19053 items)"
+      },
+      {
+        "endpoint": "Coins - Markets",
+        "status": "PASS",
+        "detail": "OK (10 items)"
+      },
+      {
+        "endpoint": "Coins - Detail",
+        "status": "FAIL",
+        "detail": "Timeout"
+      },
+      {
+        "endpoint": "Coins - History",
+        "status": "FAIL",
+        "detail": "('Connection aborted.', ConnectionResetError(54, '"
+      },
+      {
+        "endpoint": "Coins - Market Chart",
+        "status": "FAIL",
+        "detail": "('Connection aborted.', ConnectionResetError(54, '"
+      },
+      {
+        "endpoint": "Coins - OHLC",
+        "status": "FAIL",
+        "detail": "('Connection aborted.', ConnectionResetError(54, '"
+      },
+      {
+        "endpoint": "Categories - List",
+        "status": "FAIL",
+        "detail": "('Connection aborted.', ConnectionResetError(54, '"
+      },
+      {
+        "endpoint": "Categories - Data",
+        "status": "PASS",
+        "detail": "OK (647 items)"
+      },
+      {
+        "endpoint": "Exchanges - List",
+        "status": "PASS",
+        "detail": "OK (10 items)"
+      },
+      {
+        "endpoint": "Exchanges - Detail",
+        "status": "PASS",
+        "detail": "OK (24 keys)"
+      },
+      {
+        "endpoint": "Derivatives - Tickers",
+        "status": "PASS",
+        "detail": "OK (18917 items)"
+      },
+      {
+        "endpoint": "Derivatives - Exchanges",
+        "status": "PASS",
+        "detail": "OK (20 items)"
+      },
+      {
+        "endpoint": "Global - Data",
+        "status": "PASS",
+        "detail": "OK (1 keys)"
+      },
+      {
+        "endpoint": "Global - DeFi",
+        "status": "PASS",
+        "detail": "OK (1 keys)"
+      },
+      {
+        "endpoint": "Search",
+        "status": "PASS",
+        "detail": "OK (5 keys)"
+      },
+      {
+        "endpoint": "Trending",
+        "status": "PASS",
+        "detail": "OK (3 keys)"
+      },
+      {
+        "endpoint": "Asset Platforms",
+        "status": "PASS",
+        "detail": "OK (429 items)"
+      },
+      {
+        "endpoint": "Exchange Rates",
+        "status": "PASS",
+        "detail": "OK (1 keys)"
+      },
+      {
+        "endpoint": "Onchain - Networks",
+        "status": "PASS",
+        "detail": "OK (2 keys)"
+      },
+      {
+        "endpoint": "Onchain - Trending Pools",
+        "status": "PASS",
+        "detail": "OK (1 keys)"
+      },
+      {
+        "endpoint": "Onchain - Search Pools",
+        "status": "FAIL",
+        "detail": "Timeout"
+      }
+    ],
+    "Nansen": [
+      {
+        "endpoint": "Profiler - Current Balance",
+        "status": "FAIL",
+        "detail": "Forbidden (plan limit?)"
+      },
+      {
+        "endpoint": "Profiler - Transactions",
+        "status": "FAIL",
+        "detail": "Forbidden (plan limit?)"
+      },
+      {
+        "endpoint": "Profiler - Related Wallets",
+        "status": "FAIL",
+        "detail": "Forbidden (plan limit?)"
+      },
+      {
+        "endpoint": "TGM - Token Screener",
+        "status": "FAIL",
+        "detail": "Forbidden (plan limit?)"
+      },
+      {
+        "endpoint": "TGM - Flows",
+        "status": "FAIL",
+        "detail": "Forbidden (plan limit?)"
+      }
+    ]
+  }
+}
