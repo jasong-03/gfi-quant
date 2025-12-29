@@ -124,7 +124,7 @@ The dashboard will open in your browser at `http://localhost:8501`
 - ✅ Coin Data by ID
 
 ### Dune Analytics (1 endpoint)
-- ✅ Execute Query
+- ✅ Delta Balance Change
 
 ## Data Storage
 
