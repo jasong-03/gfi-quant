@@ -7,3 +7,7 @@ data/
 venv/
 .vscode/
 service-account-key.json
+gfi-*.json
+*-service-account*.json
+streamlit_secrets*.toml
+.streamlit/secrets.toml

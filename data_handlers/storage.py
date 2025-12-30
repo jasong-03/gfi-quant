@@ -4,9 +4,13 @@ Supports: Local JSON, Google Cloud Storage (GCS), BigQuery
 """
 import json
 import os
+import logging
 from datetime import datetime
 from pathlib import Path
 from config import DATA_DIR, GCP_CONFIG, STORAGE_MODE
+
+# Setup logging
+logger = logging.getLogger('storage')
 
 # Lazy imports for GCP libraries
 _gcs_client = None
@@ -18,11 +22,13 @@ def _get_gcs_client():
     """Get or create GCS client (lazy loading)"""
     global _gcs_client
     if _gcs_client is None:
+        logger.info("=== GCS CLIENT INIT ===")
         from google.cloud import storage
         from google.oauth2 import service_account
-        
+
         if 'CREDENTIALS_DICT' in GCP_CONFIG and GCP_CONFIG['CREDENTIALS_DICT']:
             # Use credentials from dict (Streamlit Secrets)
+            logger.info("GCS: Using CREDENTIALS_DICT from Streamlit secrets")
             creds = service_account.Credentials.from_service_account_info(
                 GCP_CONFIG['CREDENTIALS_DICT']
             )
@@ -30,11 +36,17 @@ def _get_gcs_client():
                 credentials=creds,
                 project=GCP_CONFIG['PROJECT_ID']
             )
+            logger.info(f"GCS: Client created with project={GCP_CONFIG['PROJECT_ID']}")
         else:
-            # Use local file
-            _gcs_client = storage.Client.from_service_account_json(
-                GCP_CONFIG['SERVICE_ACCOUNT_FILE']
-            )
+            # Check if local file exists
+            sa_file = GCP_CONFIG.get('SERVICE_ACCOUNT_FILE', '')
+            if sa_file and os.path.exists(sa_file):
+                logger.info(f"GCS: Using SERVICE_ACCOUNT_FILE: {sa_file}")
+                _gcs_client = storage.Client.from_service_account_json(sa_file)
+                logger.info("GCS: Client created from local JSON file")
+            else:
+                logger.warning(f"GCS: No credentials available! File not found: {sa_file}")
+                raise FileNotFoundError(f"GCS credentials not available. Set gcp_service_account in Streamlit secrets or provide local file.")
     return _gcs_client
 
 
@@ -42,11 +54,13 @@ def _get_bq_client():
     """Get or create BigQuery client (lazy loading)"""
     global _bq_client
     if _bq_client is None:
+        logger.info("=== BIGQUERY CLIENT INIT ===")
         from google.cloud import bigquery
         from google.oauth2 import service_account
 
         if 'CREDENTIALS_DICT' in GCP_CONFIG and GCP_CONFIG['CREDENTIALS_DICT']:
             # Use credentials from dict (Streamlit Secrets)
+            logger.info("BigQuery: Using CREDENTIALS_DICT from Streamlit secrets")
             creds = service_account.Credentials.from_service_account_info(
                 GCP_CONFIG['CREDENTIALS_DICT']
             )
@@ -54,11 +68,17 @@ def _get_bq_client():
                 credentials=creds,
                 project=GCP_CONFIG['PROJECT_ID']
             )
+            logger.info(f"BigQuery: Client created with project={GCP_CONFIG['PROJECT_ID']}")
         else:
-            # Use local file
-            _bq_client = bigquery.Client.from_service_account_json(
-                GCP_CONFIG['SERVICE_ACCOUNT_FILE']
-            )
+            # Check if local file exists
+            sa_file = GCP_CONFIG.get('SERVICE_ACCOUNT_FILE', '')
+            if sa_file and os.path.exists(sa_file):
+                logger.info(f"BigQuery: Using SERVICE_ACCOUNT_FILE: {sa_file}")
+                _bq_client = bigquery.Client.from_service_account_json(sa_file)
+                logger.info("BigQuery: Client created from local JSON file")
+            else:
+                logger.warning(f"BigQuery: No credentials available! File not found: {sa_file}")
+                raise FileNotFoundError(f"BigQuery credentials not available. Set gcp_service_account in Streamlit secrets or provide local file.")
     return _bq_client
 
 
