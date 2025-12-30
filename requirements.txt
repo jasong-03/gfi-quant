@@ -3,6 +3,8 @@ pandas
 plotly
 requests
 matplotlib
-coingecko-sdk
 python-dotenv
 watchdog
+google-cloud-storage
+google-cloud-bigquery
+google-auth

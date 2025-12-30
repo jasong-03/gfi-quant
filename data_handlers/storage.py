@@ -18,9 +18,17 @@ def _get_gcs_client():
     global _gcs_client
     if _gcs_client is None:
         from google.cloud import storage
-        _gcs_client = storage.Client.from_service_account_json(
-            GCP_CONFIG['SERVICE_ACCOUNT_FILE']
-        )
+        # Use credentials from Streamlit secrets if available (for Cloud deployment)
+        if GCP_CONFIG.get('CREDENTIALS'):
+            from google.oauth2 import service_account
+            credentials = service_account.Credentials.from_service_account_info(
+                GCP_CONFIG['CREDENTIALS']
+            )
+            _gcs_client = storage.Client(credentials=credentials, project=GCP_CONFIG['PROJECT_ID'])
+        else:
+            _gcs_client = storage.Client.from_service_account_json(
+                GCP_CONFIG['SERVICE_ACCOUNT_FILE']
+            )
     return _gcs_client
 
 
@@ -29,9 +37,17 @@ def _get_bq_client():
     global _bq_client
     if _bq_client is None:
         from google.cloud import bigquery
-        _bq_client = bigquery.Client.from_service_account_json(
-            GCP_CONFIG['SERVICE_ACCOUNT_FILE']
-        )
+        # Use credentials from Streamlit secrets if available (for Cloud deployment)
+        if GCP_CONFIG.get('CREDENTIALS'):
+            from google.oauth2 import service_account
+            credentials = service_account.Credentials.from_service_account_info(
+                GCP_CONFIG['CREDENTIALS']
+            )
+            _bq_client = bigquery.Client(credentials=credentials, project=GCP_CONFIG['PROJECT_ID'])
+        else:
+            _bq_client = bigquery.Client.from_service_account_json(
+                GCP_CONFIG['SERVICE_ACCOUNT_FILE']
+            )
     return _bq_client
 
 

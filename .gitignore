@@ -6,3 +6,6 @@ __pycache__/
 data/
 venv/
 .vscode/
+.streamlit/secrets.toml
+*.json
+!.devcontainer/*.json

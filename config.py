@@ -52,11 +52,22 @@ DATA_DIR = os.path.join(BASE_DIR, 'data')
 CACHE_DURATION = 300  # 5 minutes in seconds
 
 # Google Cloud Configuration
+def get_gcp_credentials():
+    """Get GCP credentials from Streamlit secrets or local file"""
+    try:
+        import streamlit as st
+        if hasattr(st, 'secrets') and 'gcp_service_account' in st.secrets:
+            return dict(st.secrets['gcp_service_account'])
+    except:
+        pass
+    return None
+
 GCP_CONFIG = {
     'PROJECT_ID': 'gfi-455410',
     'SERVICE_ACCOUNT_FILE': os.path.join(BASE_DIR, 'gfi-455410-c5f5b0bf4d3a.json'),
     'GCS_BUCKET': 'gfi-token-tracker-data',
     'BIGQUERY_DATASET': 'token_tracker',
+    'CREDENTIALS': get_gcp_credentials(),  # For Streamlit Cloud
 }
 
 # Storage mode: 'local', 'gcs', 'bigquery', 'all'
