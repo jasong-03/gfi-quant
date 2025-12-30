@@ -2,6 +2,10 @@
 Configuration file for API keys
 """
 import os
+from dotenv import load_dotenv
+
+# Load .env file
+load_dotenv()
 
 # Try to load local settings first
 try:
@@ -46,6 +50,17 @@ API_URLS = {
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, 'data')
 CACHE_DURATION = 300  # 5 minutes in seconds
+
+# Google Cloud Configuration
+GCP_CONFIG = {
+    'PROJECT_ID': 'gfi-455410',
+    'SERVICE_ACCOUNT_FILE': os.path.join(BASE_DIR, 'gfi-455410-c5f5b0bf4d3a.json'),
+    'GCS_BUCKET': 'gfi-token-tracker-data',
+    'BIGQUERY_DATASET': 'token_tracker',
+}
+
+# Storage mode: 'local', 'gcs', 'bigquery', 'all'
+STORAGE_MODE = get_key('STORAGE_MODE') or 'all'
 
 # Source Icons Mapping (filename in assets folder)
 SOURCE_ICONS = {

@@ -1,173 +1,211 @@
 # Token Tracker Metrics Dashboard
 
-A comprehensive cryptocurrency analytics dashboard that aggregates data from multiple sources: DefiLlama, Nansen, CoinGecko, and Dune Analytics.
+A cryptocurrency analytics dashboard aggregating data from DefiLlama, Nansen, CoinGecko, and Dune Analytics.
 
-![Dashboard Preview](wireframe_ideas.png)
+## Quick Start
 
-## Features
+### Prerequisites
 
-- 📊 **Multi-Source Data Aggregation**: Fetch data from 4 major crypto data APIs
-- 💾 **Local Data Storage**: Save all fetched data locally for offline analysis
-- 📈 **Interactive Visualizations**: Plotly-powered charts and graphs
-- 🔄 **Real-Time Monitoring**: Live status updates during data fetching
-- 🎯 **Token Tracking**: Comprehensive token analysis across multiple chains
-- 🌐 **Multi-Chain Support**: Ethereum, Solana, Polygon, Arbitrum, Base, and more
+- Python 3.8+
+- API keys for Nansen and Dune Analytics (required)
+- API keys for CoinGecko and DefiLlama (optional, for pro features)
 
-## Architecture
-
-```
-token-tracker-dashboard/
-├── app.py                      # Main Streamlit application
-├── config.py                   # API keys and configuration
-├── requirements.txt            # Python dependencies
-├── api_clients/               # API client implementations
-│   ├── defillama_client.py
-│   ├── nansen_client.py
-│   ├── coingecko_client.py
-│   └── dune_client.py
-├── data_handlers/             # Data storage and processing
-│   └── storage.py
-└── data/                      # Local data storage (auto-created)
-    ├── defillama/
-    ├── nansen/
-    ├── coingecko/
-    └── dune/
-```
-
-## Prerequisites
-
-- Python 3.8 or higher
-- API keys for:
-  - DefiLlama (optional, for pro endpoints)
-  - Nansen (required)
-  - CoinGecko (optional, for pro endpoints)
-  - Dune Analytics (required)
-
-## Installation
-
-### 1. Clone or Download the Repository
+### Installation
 
 ```bash
+# Clone the repository
 git clone <your-repo-url>
 cd token-tracker-dashboard
-```
 
-### 2. Install Dependencies
-
-```bash
+# Install dependencies
 pip install -r requirements.txt
-```
 
-### 3. Configure API Keys
-
-Create a `config.py` file from the template:
-
-```bash
+# Configure API keys
 cp config_template.py config.py
+# Edit config.py and add your API keys
 ```
 
-Edit `config.py` and add your API keys:
-
-```python
-API_KEYS = {
-    'DEFILLAMA_API_KEY': 'your-defillama-key',  # Optional
-    'NANSEN_API_KEY': 'your-nansen-key',        # Required
-    'COINGECKO_API_KEY': 'your-coingecko-key',  # Optional
-    'DUNE_API_KEY': 'your-dune-key',            # Required
-}
-```
-
-**⚠️ Security Note**: Never commit `config.py` to version control. It's included in `.gitignore`.
-
-## Usage
-
-### Running the Dashboard
+### Run the Dashboard
 
 ```bash
 streamlit run app.py
 ```
 
-The dashboard will open in your browser at `http://localhost:8501`
+Open `http://localhost:8501` in your browser.
 
-### Using the Dashboard
+---
 
-1. **Select Chain**: Choose the blockchain network (Ethereum, Solana, etc.)
-2. **Enter Contract Address**: Paste the token contract address
-3. **Fetch Data**: Click the "🚀 Fetch Data" button
-4. **Monitor Progress**: Watch real-time logs in the Log Monitoring panel
-5. **Analyze Results**: View charts, tables, and insights
+## Features
 
-### Example Tokens to Try
+| Feature | Description |
+|---------|-------------|
+| Multi-Source Aggregation | Fetch from 4 major crypto data APIs in one click |
+| Multi-Chain Support | Ethereum, Solana, Polygon, Arbitrum, Base, Optimism, BSC |
+| Interactive Charts | Plotly-powered visualizations with zoom and hover |
+| Local Data Storage | Automatic JSON caching for offline analysis |
+| Real-Time Logging | Live progress monitoring during data fetching |
+| Theme Support | Dark and Light mode |
 
-- **Solana (SOL)**: `So11111111111111111111111111111111111111112` on Solana
-- **USDC**: `0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48` on Ethereum
-- **USDT**: `0xdac17f958d2ee523a2206206994597c13d831ec7` on Ethereum
+---
 
-## API Endpoints Implemented
+## Supported API Endpoints
 
-### DefiLlama (4 endpoints)
-- ✅ Get Price Chart
-- ✅ Get Price Percentage Change
-- ✅ Get Token Protocols
-- ✅ Get Borrowing Rates
+### DefiLlama (Free/Pro)
 
-### Nansen (5 endpoints)
-- ✅ Token Who Bought/Sold
-- ✅ Token Perp Trades
-- ✅ Token Transfers
-- ✅ Token Holders
-- ✅ Token Flow Intelligence
+| Endpoint | Status |
+|----------|--------|
+| Get Price Chart | Available |
+| Get Price Percentage Change | Available |
+| Get Token Protocols | Pro only |
+| Get Borrowing Rates | Available |
 
-### CoinGecko (3 endpoints)
-- ✅ Coins List (ID Map)
-- ✅ Coin Historical Chart by Token Address
-- ✅ Coin Data by ID
+### Nansen (Requires API Key)
 
-### Dune Analytics (1 endpoint)
-- ✅ Delta Balance Change
+| Endpoint | Status |
+|----------|--------|
+| Token Who Bought/Sold | Available |
+| Token Flow Intelligence | Available |
+| Token Holders | Available |
+| Token Transfers | Available |
+| Token Perp Trades | Requires symbol |
+
+### CoinGecko (Free/Pro)
+
+| Endpoint | Status |
+|----------|--------|
+| Coins List (ID Map) | Available |
+| Historical Chart by Contract | Available |
+| Coin Data by ID | Available |
+
+### Dune Analytics (Requires API Key)
+
+| Endpoint | Status |
+|----------|--------|
+| Delta Balance Change | Available |
+
+---
+
+## Configuration
+
+### API Keys Setup
+
+Create `config.py` from the template:
+
+```python
+API_KEYS = {
+    'DEFILLAMA_API_KEY': '',      # Optional (for pro endpoints)
+    'NANSEN_API_KEY': 'your-key', # Required
+    'COINGECKO_API_KEY': '',      # Optional (for pro endpoints)
+    'DUNE_API_KEY': 'your-key',   # Required
+}
+```
+
+**Security**: Never commit `config.py` to version control.
+
+### Rate Limits
+
+| Provider | Limit |
+|----------|-------|
+| DefiLlama | 60 req/min |
+| Nansen | 30 req/min |
+| CoinGecko | 50 req/min |
+| Dune | 20 req/min |
+
+---
+
+## Usage
+
+1. **Select Chain**: Choose blockchain network from dropdown
+2. **Enter Contract Address**: Paste token contract address
+3. **Select Period**: Choose analysis timeframe (3 months to All)
+4. **Fetch Data**: Click "Fetch" to start data collection
+5. **Monitor Progress**: Watch real-time logs
+6. **Analyze**: Switch to "Token Tracker" tab for visualizations
+
+### Example Tokens
+
+| Token | Chain | Address |
+|-------|-------|---------|
+| SOL | Solana | `So11111111111111111111111111111111111111112` |
+| USDC | Ethereum | `0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48` |
+| USDT | Ethereum | `0xdac17f958d2ee523a2206206994597c13d831ec7` |
+
+---
+
+## Project Structure
+
+```
+gfi-quant-project/
+├── app.py                 # Main Streamlit application
+├── config.py              # API keys and configuration
+├── api_clients/           # API client implementations
+│   ├── dune_client.py
+│   ├── defillama_client.py
+│   ├── nansen_client.py
+│   └── coingecko_client.py
+├── data_handlers/         # Data storage and processing
+│   └── storage.py
+├── utils/                 # Utilities (logger, validators)
+├── visualizations/        # Charts and tables
+├── docs/                  # Documentation
+└── data/                  # Cached data (auto-created)
+```
+
+---
+
+## Documentation
+
+Detailed documentation is available in the `docs/` directory:
+
+| Document | Description |
+|----------|-------------|
+| [Project Overview (PDR)](docs/project-overview-pdr.md) | Product vision, goals, and success criteria |
+| [Codebase Summary](docs/codebase-summary.md) | Complete module and function reference |
+| [Code Standards](docs/code-standards.md) | Coding conventions and patterns |
+| [System Architecture](docs/system-architecture.md) | Architecture diagrams and data flows |
+
+---
 
 ## Data Storage
 
-All fetched data is automatically saved to the `data/` directory:
+Fetched data is saved to the `data/` directory:
 
 ```
-data/
-├── defillama/
-│   └── ethereum/
-│       └── 0xA0b8.../
-│           ├── price_chart_20241226_143022.json
-│           └── price_percentage_20241226_143023.json
-├── nansen/
-│   └── solana/
-│       └── So1111.../
-│           ├── who_bought_sold_20241226_143025.json
-│           └── holders_20241226_143027.json
-└── ...
+data/{source}/{chain}/{address}/{endpoint}_{timestamp}.json
 ```
 
-### Managing Cached Data
+Example:
+```
+data/nansen/ethereum/0xA0b8.../holders_20241226_143022.json
+```
 
-View storage statistics in the sidebar:
-- Total cached files
-- Storage size
-- Files per API source
+---
 
-Clear cache using the "🗑️ Clear Cache" button
+## Troubleshooting
+
+### Common Issues
+
+| Error | Solution |
+|-------|----------|
+| `API key is required` | Add API key to `config.py` |
+| `ModuleNotFoundError` | Run from project root directory |
+| `ConnectionError` | Check internet connection |
+| `Rate limit exceeded` | Wait before retrying |
+
+### Viewing Logs
+
+Check the "Log Monitoring" panel in the dashboard for real-time status updates during data fetching.
+
+---
 
 ## Development
 
-### Project Structure
+### Adding a New API Endpoint
 
-- **`app.py`**: Main Streamlit application with UI layout
-- **`api_clients/`**: Separate client classes for each API
-- **`data_handlers/storage.py`**: Local data storage management
-- **`config.py`**: Configuration and API keys (not in git)
-
-### Adding New Features
-
-1. **New API Endpoint**: Add method to relevant client in `api_clients/`
-2. **New Visualization**: Add chart function to `app.py`
-3. **New Data Processing**: Add processor to `data_handlers/`
+1. Add method to appropriate client in `api_clients/`
+2. Update `fetch_all_data()` in `app.py`
+3. Add visualization function if needed
+4. Update endpoint status tracking
 
 ### Code Style
 
@@ -176,53 +214,29 @@ Clear cache using the "🗑️ Clear Cache" button
 - Use type hints
 - Log important operations
 
-## API Rate Limits
+See [Code Standards](docs/code-standards.md) for details.
 
-Be aware of rate limits for each API:
+---
 
-- **DefiLlama**: 60 requests/minute
-- **Nansen**: 30 requests/minute (credit-based)
-- **CoinGecko**: 50 requests/minute (varies by plan)
-- **Dune**: 20 requests/minute (credit-based)
+## Roadmap
 
-The dashboard implements proper error handling for rate limits.
+| Feature | Status |
+|---------|--------|
+| Core data fetching | Complete |
+| Visualizations | Complete |
+| WebSocket real-time | Planned |
+| Multi-token comparison | Planned |
+| Automated alerts | Planned |
+| PDF report generation | Planned |
 
-## Troubleshooting
-
-### API Key Errors
-
-```
-Error: Nansen API key is required
-```
-**Solution**: Add your Nansen API key to `config.py`
-
-### Module Import Errors
-
-```
-ModuleNotFoundError: No module named 'api_clients'
-```
-**Solution**: Ensure you're running from the project root directory
-
-### Data Fetch Failures
-
-- Check API key validity
-- Verify contract address format
-- Check rate limits
-- Review logs in the monitoring panel
-
-### Network Issues
-
-```
-requests.exceptions.ConnectionError
-```
-**Solution**: Check your internet connection and firewall settings
+---
 
 ## Credits
 
 ### Data Sources
 - [DefiLlama](https://defillama.com) - DeFi analytics
-- [Nansen](https://nansen.ai) - Blockchain analytics
-- [CoinGecko](https://coingecko.com) - Crypto market data
+- [Nansen](https://nansen.ai) - Blockchain intelligence
+- [CoinGecko](https://coingecko.com) - Market data
 - [Dune Analytics](https://dune.com) - Blockchain queries
 
 ### Built With
@@ -230,32 +244,13 @@ requests.exceptions.ConnectionError
 - [Plotly](https://plotly.com/python/) - Interactive charts
 - [Pandas](https://pandas.pydata.org) - Data manipulation
 
+---
+
 ## License
 
 This project is provided as-is for educational and personal use.
 
-## Support
-
-For issues, questions, or contributions:
-1. Check existing documentation
-2. Review error logs in the dashboard
-3. Consult API documentation links in the endpoint table
-
-## Roadmap
-
-### Planned Features
-- [ ] WebSocket support for real-time updates
-- [ ] Multi-token comparison view
-- [ ] Automated alerts and notifications
-- [ ] Cloud storage integration (S3/GCS)
-- [ ] PDF report generation
-- [ ] Portfolio tracking
-- [ ] Social sentiment analysis
-- [ ] Advanced charting tools
-
-### Current Version
-**v1.0.0** - Initial release with core features
-
 ---
 
-**Note**: This dashboard is for informational purposes only. Always do your own research before making investment decisions.
+**Note**: This dashboard is for informational purposes only. Always conduct your own research before making investment decisions.
+

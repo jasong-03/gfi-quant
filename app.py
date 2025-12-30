@@ -12,10 +12,8 @@ import base64
 from pathlib import Path
 
 from config import API_KEYS, SUPPORTED_CHAINS, SOURCE_ICONS
-from api_clients.defillama_client import DefiLlamaClient
 from api_clients.nansen_client import NansenClient
 from api_clients.coingecko_client import CoinGeckoClient
-from api_clients.dune_client import DuneClient
 from data_handlers.storage import save_json, load_latest_json
 from utils.logger import log_to_ui as log_to_ui_util
 from utils.validators import validate_contract_address
@@ -44,12 +42,30 @@ st.set_page_config(
 # Sidebar Configuration
 with st.sidebar:
     st.header("⚙️ Configuration")
-    
+
+    # User Selection
+    DEFAULT_MEMBERS = ["Andrew", "Minh", "Linh"]
+    if 'team_members' not in st.session_state:
+        st.session_state.team_members = DEFAULT_MEMBERS.copy()
+
+    current_user = st.selectbox("👤 Bạn là ai?", st.session_state.team_members, index=0)
+    st.session_state.current_user = current_user
+
+    # Add new member
+    with st.expander("➕ Thêm thành viên"):
+        new_member = st.text_input("Tên mới", placeholder="Nhập tên...")
+        if st.button("Thêm", use_container_width=True):
+            if new_member and new_member not in st.session_state.team_members:
+                st.session_state.team_members.append(new_member)
+                st.rerun()
+
+    st.markdown("---")
+
     # Theme Switcher
     theme = st.selectbox("Theme", ["Dark", "Light"], index=0)
-    
+
     st.markdown("---")
-    
+
     st.markdown("### API Status & Credits")
     
     if 'api_usage' not in st.session_state:
@@ -194,89 +210,87 @@ if 'endpoint_status' not in st.session_state:
     st.session_state.endpoint_status = {}
 if 'preview_endpoint' not in st.session_state:
     st.session_state.preview_endpoint = None
+if 'current_user' not in st.session_state:
+    st.session_state.current_user = None
 
 ENDPOINT_MAPPING = {
-    "Get Price Chart": ("defillama", "price_chart"),
-    "Get Price Percentage Change": ("defillama", "price_percentage"),
-    "Token Who Bought/Sold": ("nansen", "who_bought_sold"),
-    "Token Perp Trades": ("nansen", "perp_trades"),
-    "Token Transfers": ("nansen", "transfers"),
-    "Token Holders": ("nansen", "holders"),
-    "Coin Historical Chart by Token Address": ("coingecko", "historical_chart"),
-    "Token Flow Intelligence": ("nansen", "flow_intelligence"),
-    "Delta Balance Change": ("dune", "delta_balance")
+    # ==================== CoinGecko ====================
+    # Simple/Price
+    "CG: Simple Price": ("coingecko", "simple_price"),
+    "CG: Token Price by Contract": ("coingecko", "simple_token_price"),
+    # Coins
+    "CG: Coins List": ("coingecko", "coins_list"),
+    "CG: Coins Markets": ("coingecko", "coins_markets"),
+    "CG: Coin Data by ID": ("coingecko", "coin_data"),
+    "CG: Coin Tickers": ("coingecko", "coin_tickers"),
+    "CG: Coin Market Chart": ("coingecko", "coin_market_chart"),
+    "CG: Coin OHLC": ("coingecko", "coin_ohlc"),
+    # Contract
+    "CG: Coin Info by Contract": ("coingecko", "coin_info"),
+    "CG: Chart by Contract": ("coingecko", "historical_chart"),
+    # Categories
+    "CG: Categories List": ("coingecko", "categories_list"),
+    "CG: Categories": ("coingecko", "categories"),
+    # Exchanges
+    "CG: Exchanges": ("coingecko", "exchanges"),
+    "CG: Exchanges List": ("coingecko", "exchanges_list"),
+    # Derivatives
+    "CG: Derivatives": ("coingecko", "derivatives"),
+    "CG: Derivatives Exchanges": ("coingecko", "derivatives_exchanges"),
+    # General
+    "CG: Asset Platforms": ("coingecko", "asset_platforms"),
+    "CG: Exchange Rates": ("coingecko", "exchange_rates"),
+    "CG: Search": ("coingecko", "search"),
+    "CG: Trending": ("coingecko", "trending"),
+    "CG: Global": ("coingecko", "global"),
+    "CG: Global DeFi": ("coingecko", "global_defi"),
+    # Onchain DEX
+    "CG: Onchain Networks": ("coingecko", "onchain_networks"),
+    "CG: Onchain Token": ("coingecko", "onchain_token"),
+    "CG: Onchain Token Pools": ("coingecko", "onchain_token_pools"),
+    "CG: Onchain Trending Pools": ("coingecko", "onchain_trending_pools"),
+    "CG: Onchain New Pools": ("coingecko", "onchain_new_pools"),
+
+    # ==================== Nansen ====================
+    # Smart Money
+    "NS: Smart Money Netflow": ("nansen", "sm_netflow"),
+    "NS: Smart Money Holdings": ("nansen", "sm_holdings"),
+    "NS: Smart Money DEX Trades": ("nansen", "sm_dex_trades"),
+    # Profiler
+    "NS: Address Balance": ("nansen", "address_balance"),
+    "NS: Address Transactions": ("nansen", "address_transactions"),
+    "NS: Address Related Wallets": ("nansen", "address_related_wallets"),
+    "NS: Address Counterparties": ("nansen", "address_counterparties"),
+    "NS: Address PnL": ("nansen", "address_pnl"),
+    # TGM - Token
+    "NS: Token Screener": ("nansen", "token_screener"),
+    "NS: Token Flows": ("nansen", "token_flows"),
+    "NS: Token Flow Intelligence": ("nansen", "flow_intelligence"),
+    "NS: Token Who Bought/Sold": ("nansen", "who_bought_sold"),
+    "NS: Token DEX Trades": ("nansen", "token_dex_trades"),
+    "NS: Token Transfers": ("nansen", "transfers"),
+    "NS: Token Holders": ("nansen", "holders"),
+    "NS: Token PnL Leaderboard": ("nansen", "token_pnl_leaderboard"),
+    # TGM - Perp
+    "NS: Perp Screener": ("nansen", "perp_screener"),
+    "NS: Token Perp Trades": ("nansen", "perp_trades"),
+    "NS: Token Perp Positions": ("nansen", "perp_positions"),
+    "NS: Perp PnL Leaderboard": ("nansen", "perp_pnl_leaderboard"),
+    # Portfolio
+    "NS: DeFi Holdings": ("nansen", "defi_holdings"),
 }
 
 def get_endpoint_list():
-    """Get the endpoint status list with sorting"""
-    endpoints = [
-        {
-            "Endpoint": "Get Price Chart",
-            "Source": "DefiLlama",
-            "Fetch Success": st.session_state.endpoint_status.get("price_chart", "pending")
-        },
-        {
-            "Endpoint": "Get Price Percentage Change",
-            "Source": "DefiLlama",
-            "Fetch Success": st.session_state.endpoint_status.get("price_percentage", "pending")
-        },
-        {
-            "Endpoint": "Get Token Protocols",
-            "Source": "DefiLlama",
-            "Fetch Success": st.session_state.endpoint_status.get("token_protocols", "pending")
-        },
-        {
-            "Endpoint": "Token Who Bought/Sold",
-            "Source": "Nansen",
-            "Fetch Success": st.session_state.endpoint_status.get("who_bought_sold", "pending")
-        },
-        {
-            "Endpoint": "Token Perp Trades",
-            "Source": "Nansen",
-            "Fetch Success": st.session_state.endpoint_status.get("perp_trades", "pending")
-        },
-        {
-            "Endpoint": "Token Transfers",
-            "Source": "Nansen",
-            "Fetch Success": st.session_state.endpoint_status.get("transfers", "pending")
-        },
-        {
-            "Endpoint": "Token Holders",
-            "Source": "Nansen",
-            "Fetch Success": st.session_state.endpoint_status.get("holders", "pending")
-        },
-        {
-            "Endpoint": "Get Borrowing Rates",
-            "Source": "DefiLlama",
-            "Fetch Success": st.session_state.endpoint_status.get("borrowing_rates", "pending")
-        },
-        {
-            "Endpoint": "Coins List (ID Map)",
-            "Source": "CoinGecko",
-            "Fetch Success": st.session_state.endpoint_status.get("coins_list", "pending")
-        },
-        {
-            "Endpoint": "Coin Historical Chart by Token Address",
-            "Source": "CoinGecko",
-            "Fetch Success": st.session_state.endpoint_status.get("historical_chart", "pending")
-        },
-        {
-            "Endpoint": "Coin Data by ID",
-            "Source": "CoinGecko",
-            "Fetch Success": st.session_state.endpoint_status.get("coin_data", "pending")
-        },
-        {
-            "Endpoint": "Token Flow Intelligence",
-            "Source": "Nansen",
-            "Fetch Success": st.session_state.endpoint_status.get("flow_intelligence", "pending")
-        },
-        {
-            "Endpoint": "Delta Balance Change",
-            "Source": "Dune",
-            "Fetch Success": st.session_state.endpoint_status.get("delta_balance", "pending")
-        }
-    ]
-    
+    """Get the endpoint status list with sorting - auto-generated from ENDPOINT_MAPPING"""
+    endpoints = []
+    for name, (source, key) in ENDPOINT_MAPPING.items():
+        source_display = "CoinGecko" if source == "coingecko" else "Nansen"
+        endpoints.append({
+            "Endpoint": name,
+            "Source": source_display,
+            "Fetch Success": st.session_state.endpoint_status.get(key, "pending")
+        })
+
     # Sorting logic: done (0) -> failed (1) -> warning (2) -> pending (3)
     def get_sort_key(ep):
         status = ep["Fetch Success"]
@@ -284,7 +298,7 @@ def get_endpoint_list():
         if "failed" in status: return 1
         if "⚠️" in status: return 2
         return 3
-        
+
     return sorted(endpoints, key=get_sort_key)
 
 def load_dune_query(chain, address, period):
@@ -328,218 +342,499 @@ def load_dune_query(chain, address, period):
         log_to_ui_util(f"Error loading Dune SQL: {str(e)}", "error")
         return None
 
-def fetch_all_data(chain_name, contract_address, period="3 months", log_placeholder=None):
+def fetch_all_data(chain_name, contract_address, period="3 months", log_placeholder=None, user_id=None):
     """
-    Main function to fetch data from all API sources
+    Main function to fetch data from all API sources (CoinGecko + Nansen)
+    Total: 50+ endpoints
+
+    Args:
+        user_id: User identifier for multi-user storage
     """
-    st.session_state.logs = []  # Clear previous logs
+    st.session_state.logs = []
     st.session_state.endpoint_status = {}
-    
+
     bg_color = "#0c0c0c" if theme == "Dark" else "#f0f2f6"
     text_color = "#00ff00" if theme == "Dark" else "#006400"
 
-    # Inner helper to handle live logging
     def log_to_ui(message, status="info"):
         log_to_ui_util(message, status)
         if log_placeholder:
-             # Use <br> for explicit newlines in HTML
-             log_content = "<br>".join(st.session_state.logs)
-             log_placeholder.markdown(f"""
+            log_content = "<br>".join(st.session_state.logs)
+            log_placeholder.markdown(f"""
                 <div style="background-color: {bg_color}; color: {text_color}; font-family: monospace; padding: 15px; height: 300px; overflow-y: scroll; border: 1px solid #333; border-radius: 5px; font-size: 12px; line-height: 1.5;">
                     {log_content}
                 </div>
             """, unsafe_allow_html=True)
-    
-    log_to_ui(f"Starting data fetch for {chain_name}: {contract_address} ({period})", "info")
-    
+
+    def fetch_endpoint(key, func, *args, **kwargs):
+        """Helper to fetch and save endpoint data"""
+        try:
+            data = func(*args, **kwargs)
+            save_json(data, kwargs.get('source', 'unknown'), chain_name, contract_address, key, user_id)
+            st.session_state.endpoint_status[key] = "✅ done"
+            return data
+        except Exception as e:
+            log_to_ui(f"{key} error: {str(e)[:50]}", "error")
+            st.session_state.endpoint_status[key] = "❌ failed"
+            return None
+
+    log_to_ui(f"Starting fetch for {chain_name}: {contract_address} ({period}) by {user_id}", "info")
+
     chain_config = SUPPORTED_CHAINS.get(chain_name)
     if not chain_config:
-        log_to_ui(f"Chain {chain_name} configuration not found", "error")
+        log_to_ui(f"Chain {chain_name} not found", "error")
         return
 
-    # Calculate dates based on period
+    # Calculate dates
     end_date_obj = datetime.now()
-    if period == "3 months":
-        days = 90
-    elif period == "6 months":
-        days = 180
-    elif period == "1 year":
-        days = 365
-    else:
-        days = "max"
-        
-    if days != "max":
-        start_date_obj = end_date_obj - timedelta(days=days)
-        start_date_str = start_date_obj.strftime("%Y-%m-%d")
-        cg_days = str(days)
-    else:
-        # For Nansen/Dune if max, maybe 3 years default
-        start_date_obj = end_date_obj - timedelta(days=365*3)
-        start_date_str = start_date_obj.strftime("%Y-%m-%d")
-        cg_days = "max"
-        
+    days = {"3 months": 90, "6 months": 180, "1 year": 365}.get(period, 365*3)
+    start_date_obj = end_date_obj - timedelta(days=days)
+    start_date_str = start_date_obj.strftime("%Y-%m-%d")
     end_date_str = end_date_obj.strftime("%Y-%m-%d")
+    cg_days = str(days) if period != "All" else "max"
 
-    # Initialize API clients
+    # Init clients
     try:
         log_to_ui("Initializing API clients...", "info")
-        defillama = DefiLlamaClient()
         nansen = NansenClient()
         coingecko = CoinGeckoClient()
-        dune = DuneClient()
     except Exception as e:
-        log_to_ui(f"Error initializing clients: {str(e)}", "error")
+        log_to_ui(f"Client init error: {str(e)}", "error")
         return
 
-    # --- DefiLlama ---
-    log_to_ui("Fetching DefiLlama data...", "info")
-    try:
-        # 1. Price Chart
-        dl_chain = chain_config.get('defillama')
-        chart_data = defillama.get_price_chart(dl_chain, contract_address)
-        save_json(chart_data, 'defillama', chain_name, contract_address, 'price_chart')
-        st.session_state.endpoint_status["price_chart"] = "✅ done"
-        log_to_ui("DefiLlama Price Chart fetched", "success")
-        
-        # 2. Price Percentage
-        pct_data = defillama.get_price_percentage_change(dl_chain, contract_address)
-        save_json(pct_data, 'defillama', chain_name, contract_address, 'price_percentage')
-        st.session_state.endpoint_status["price_percentage"] = "✅ done"
-        log_to_ui("DefiLlama Price Percentage fetched", "success")
+    cg_chain = chain_config.get('coingecko')
+    nansen_chain = chain_config.get('nansen')
+    token_symbol = None
+    coin_id = None
 
-        st.session_state.endpoint_status["borrowing_rates"] = "✅ done" 
-        st.session_state.endpoint_status["token_protocols"] = "⚠️" 
+    # ==================== COINGECKO ====================
+    log_to_ui("=" * 40, "info")
+    log_to_ui("COINGECKO ENDPOINTS", "info")
+    log_to_ui("=" * 40, "info")
 
-    except Exception as e:
-        log_to_ui(f"DefiLlama error: {str(e)}", "error")
-        st.session_state.endpoint_status["price_chart"] = "❌ failed"
-
-    # --- Nansen ---
-    log_to_ui("Fetching Nansen data...", "info")
-    nansen_chain = chain_config.get('nansen', 1)
-    
-    # 1. Who Bought/Sold
+    # --- Contract-specific (to get coin_id and symbol first) ---
     try:
-        wbs_data = nansen.get_token_who_bought_sold(contract_address, chain=nansen_chain, start_date=start_date_str, end_date=end_date_str)
-        save_json(wbs_data, 'nansen', chain_name, contract_address, 'who_bought_sold')
-        st.session_state.endpoint_status["who_bought_sold"] = "✅ done"
-        log_to_ui("Nansen Who Bought/Sold fetched", "success")
-    except Exception as e:
-        log_to_ui(f"Nansen Who Bought/Sold error: {str(e)}", "error")
-        st.session_state.endpoint_status["who_bought_sold"] = "❌ failed"
-
-    # 2. Flow Intelligence
-    try:
-        flow_data = nansen.get_token_flow_intelligence(contract_address, chain=nansen_chain)
-        save_json(flow_data, 'nansen', chain_name, contract_address, 'flow_intelligence')
-        st.session_state.endpoint_status["flow_intelligence"] = "✅ done"
-        log_to_ui("Nansen Flow Intelligence fetched", "success")
-    except Exception as e:
-        log_to_ui(f"Nansen Flow Intelligence error: {str(e)}", "error")
-        st.session_state.endpoint_status["flow_intelligence"] = "❌ failed"
-
-    # 3. Holders
-    try:
-        holders_data = nansen.get_token_holders(contract_address, chain=nansen_chain)
-        save_json(holders_data, 'nansen', chain_name, contract_address, 'holders')
-        st.session_state.endpoint_status["holders"] = "✅ done"
-        log_to_ui("Nansen Holders fetched", "success")
-    except Exception as e:
-        log_to_ui(f"Nansen Holders error: {str(e)}", "error")
-        st.session_state.endpoint_status["holders"] = "❌ failed"
-        
-    # 4. Transfers
-    try:
-        transfers_data = nansen.get_token_transfers(contract_address, chain=nansen_chain, start_date=start_date_str, end_date=end_date_str)
-        save_json(transfers_data, 'nansen', chain_name, contract_address, 'transfers')
-        st.session_state.endpoint_status["transfers"] = "✅ done"
-        log_to_ui("Nansen Transfers fetched", "success")
-    except Exception as e:
-        log_to_ui(f"Nansen Transfers error: {str(e)}", "error")
-        st.session_state.endpoint_status["transfers"] = "❌ failed"
-        
-    # 5. Perp Trades (Skipping for now as it requires symbol, not address)
-    st.session_state.endpoint_status["perp_trades"] = "⚠️" # Mark as skipped/warning
-
-    # --- CoinGecko ---
-    log_to_ui("Fetching CoinGecko data...", "info")
-    try:
-        st.session_state.endpoint_status["coins_list"] = "✅ done"
-        
-        cg_chain = chain_config.get('coingecko')
-        
-        # 1. Historical Chart
-        cg_data = coingecko.get_coin_historical_chart_by_contract(cg_chain, contract_address, days=cg_days)
-        save_json(cg_data, 'coingecko', chain_name, contract_address, 'historical_chart')
-        st.session_state.endpoint_status["historical_chart"] = "✅ done"
-        log_to_ui("CoinGecko Historical Chart fetched", "success")
-        
-        # 2. Coin Info (Metadata)
         coin_info = coingecko.get_coin_info_by_contract(cg_chain, contract_address)
-        save_json(coin_info, 'coingecko', chain_name, contract_address, 'coin_info')
-        st.session_state.endpoint_status["coin_data"] = "✅ done"
-        log_to_ui("CoinGecko Coin Info fetched", "success")
-
+        save_json(coin_info, 'coingecko', chain_name, contract_address, 'coin_info', user_id)
+        st.session_state.endpoint_status["coin_info"] = "✅ done"
+        token_symbol = coin_info.get('symbol', '').upper()
+        coin_id = coin_info.get('id')
+        log_to_ui(f"Coin Info: {token_symbol} (ID: {coin_id})", "success")
     except Exception as e:
-        log_to_ui(f"CoinGecko error: {str(e)}", "error")
+        log_to_ui(f"Coin Info error: {str(e)[:50]}", "error")
+        st.session_state.endpoint_status["coin_info"] = "❌ failed"
+
+    # --- Simple/Price ---
+    try:
+        if coin_id:
+            data = coingecko.get_simple_price([coin_id])
+            save_json(data, 'coingecko', chain_name, contract_address, 'simple_price', user_id)
+            st.session_state.endpoint_status["simple_price"] = "✅ done"
+            log_to_ui("Simple Price fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["simple_price"] = "❌ failed"
+
+    try:
+        data = coingecko.get_simple_token_price(cg_chain, contract_address)
+        save_json(data, 'coingecko', chain_name, contract_address, 'simple_token_price', user_id)
+        st.session_state.endpoint_status["simple_token_price"] = "✅ done"
+        log_to_ui("Token Price by Contract fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["simple_token_price"] = "❌ failed"
+
+    # --- Coins ---
+    try:
+        data = coingecko.get_coins_list()
+        save_json(data, 'coingecko', chain_name, contract_address, 'coins_list', user_id)
+        st.session_state.endpoint_status["coins_list"] = "✅ done"
+        log_to_ui(f"Coins List: {len(data)} coins", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["coins_list"] = "❌ failed"
+
+    try:
+        data = coingecko.get_coins_markets(per_page=100)
+        save_json(data, 'coingecko', chain_name, contract_address, 'coins_markets', user_id)
+        st.session_state.endpoint_status["coins_markets"] = "✅ done"
+        log_to_ui("Coins Markets fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["coins_markets"] = "❌ failed"
+
+    if coin_id:
+        try:
+            data = coingecko.get_coin_data(coin_id)
+            save_json(data, 'coingecko', chain_name, contract_address, 'coin_data', user_id)
+            st.session_state.endpoint_status["coin_data"] = "✅ done"
+            log_to_ui("Coin Data by ID fetched", "success")
+        except Exception as e:
+            st.session_state.endpoint_status["coin_data"] = "❌ failed"
+
+        try:
+            data = coingecko.get_coin_tickers(coin_id)
+            save_json(data, 'coingecko', chain_name, contract_address, 'coin_tickers', user_id)
+            st.session_state.endpoint_status["coin_tickers"] = "✅ done"
+            log_to_ui("Coin Tickers fetched", "success")
+        except Exception as e:
+            st.session_state.endpoint_status["coin_tickers"] = "❌ failed"
+
+        try:
+            data = coingecko.get_coin_market_chart(coin_id, days=cg_days)
+            save_json(data, 'coingecko', chain_name, contract_address, 'coin_market_chart', user_id)
+            st.session_state.endpoint_status["coin_market_chart"] = "✅ done"
+            log_to_ui("Coin Market Chart fetched", "success")
+        except Exception as e:
+            st.session_state.endpoint_status["coin_market_chart"] = "❌ failed"
+
+        try:
+            data = coingecko.get_coin_ohlc(coin_id, days=30)
+            save_json(data, 'coingecko', chain_name, contract_address, 'coin_ohlc', user_id)
+            st.session_state.endpoint_status["coin_ohlc"] = "✅ done"
+            log_to_ui("Coin OHLC fetched", "success")
+        except Exception as e:
+            st.session_state.endpoint_status["coin_ohlc"] = "❌ failed"
+    else:
+        for k in ["coin_data", "coin_tickers", "coin_market_chart", "coin_ohlc"]:
+            st.session_state.endpoint_status[k] = "⚠️ skip"
+
+    # --- Chart by Contract ---
+    try:
+        data = coingecko.get_coin_historical_chart_by_contract(cg_chain, contract_address, days=cg_days)
+        save_json(data, 'coingecko', chain_name, contract_address, 'historical_chart', user_id)
+        st.session_state.endpoint_status["historical_chart"] = "✅ done"
+        log_to_ui("Chart by Contract fetched", "success")
+    except Exception as e:
         st.session_state.endpoint_status["historical_chart"] = "❌ failed"
 
-    # --- Dune ---
-    log_to_ui("Fetching Dune data...", "info")
+    # --- Categories ---
     try:
-        # Existing placeholder endpoint
-        st.session_state.endpoint_status["dune_query"] = "✅ done"
-        
-        # Delta Balance Change
-        log_to_ui("Processing Delta Balance Change (Dune)...", "info")
-        query_sql = load_dune_query(chain_name, contract_address, period)
-        
-        if query_sql:
-            # Create Query
-            log_to_ui("Creating Dune query...", "info")
-            query_name = f"Delta Balance {chain_name} {contract_address} {int(time.time())}"
-            query_resp = dune.create_query(query_name, query_sql)
-            query_id = query_resp.get('query_id')
-            
-            if query_id:
-                log_to_ui(f"Query created (ID: {query_id}). Executing...", "info")
-                exec_resp = dune.execute_query(query_id)
-                execution_id = exec_resp.get('execution_id')
-                
-                if execution_id:
-                    # Poll for completion
-                    max_retries = 90 # 180 seconds
-                    for _ in range(max_retries):
-                        status_resp = dune.get_execution_status(execution_id)
-                        state = status_resp.get('state')
-                        
-                        if state == "QUERY_STATE_COMPLETED":
-                            log_to_ui("Dune query completed!", "success")
-                            results = dune.get_execution_results(execution_id)
-                            save_json(results, 'dune', chain_name, contract_address, 'delta_balance')
-                            st.session_state.endpoint_status["delta_balance"] = "✅ done"
-                            break
-                        elif state in ["QUERY_STATE_FAILED", "QUERY_STATE_CANCELLED"]:
-                            log_to_ui(f"Dune query failed: {state}", "error")
-                            st.session_state.endpoint_status["delta_balance"] = "❌ failed"
-                            break
-                        
-                        time.sleep(2)
-                    else:
-                        log_to_ui("Dune query execution timed out", "error")
-                        st.session_state.endpoint_status["delta_balance"] = "pending"
-                else:
-                    log_to_ui("Failed to get execution ID", "error")
-            else:
-                log_to_ui("Failed to get query ID", "error")
-        else:
-             log_to_ui("Could not load/format Dune SQL", "error")
-
+        data = coingecko.get_categories_list()
+        save_json(data, 'coingecko', chain_name, contract_address, 'categories_list', user_id)
+        st.session_state.endpoint_status["categories_list"] = "✅ done"
+        log_to_ui("Categories List fetched", "success")
     except Exception as e:
-        log_to_ui(f"Dune error: {str(e)}", "error")
-        st.session_state.endpoint_status["delta_balance"] = "❌ failed"
+        st.session_state.endpoint_status["categories_list"] = "❌ failed"
 
-    log_to_ui("All data fetch operations completed!", "success")
+    try:
+        data = coingecko.get_categories()
+        save_json(data, 'coingecko', chain_name, contract_address, 'categories', user_id)
+        st.session_state.endpoint_status["categories"] = "✅ done"
+        log_to_ui("Categories fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["categories"] = "❌ failed"
+
+    # --- Exchanges ---
+    try:
+        data = coingecko.get_exchanges(per_page=50)
+        save_json(data, 'coingecko', chain_name, contract_address, 'exchanges', user_id)
+        st.session_state.endpoint_status["exchanges"] = "✅ done"
+        log_to_ui("Exchanges fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["exchanges"] = "❌ failed"
+
+    try:
+        data = coingecko.get_exchanges_list()
+        save_json(data, 'coingecko', chain_name, contract_address, 'exchanges_list', user_id)
+        st.session_state.endpoint_status["exchanges_list"] = "✅ done"
+        log_to_ui("Exchanges List fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["exchanges_list"] = "❌ failed"
+
+    # --- Derivatives ---
+    try:
+        data = coingecko.get_derivatives()
+        save_json(data, 'coingecko', chain_name, contract_address, 'derivatives', user_id)
+        st.session_state.endpoint_status["derivatives"] = "✅ done"
+        log_to_ui("Derivatives fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["derivatives"] = "❌ failed"
+
+    try:
+        data = coingecko.get_derivatives_exchanges()
+        save_json(data, 'coingecko', chain_name, contract_address, 'derivatives_exchanges', user_id)
+        st.session_state.endpoint_status["derivatives_exchanges"] = "✅ done"
+        log_to_ui("Derivatives Exchanges fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["derivatives_exchanges"] = "❌ failed"
+
+    # --- General ---
+    try:
+        data = coingecko.get_asset_platforms()
+        save_json(data, 'coingecko', chain_name, contract_address, 'asset_platforms', user_id)
+        st.session_state.endpoint_status["asset_platforms"] = "✅ done"
+        log_to_ui("Asset Platforms fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["asset_platforms"] = "❌ failed"
+
+    try:
+        data = coingecko.get_exchange_rates()
+        save_json(data, 'coingecko', chain_name, contract_address, 'exchange_rates', user_id)
+        st.session_state.endpoint_status["exchange_rates"] = "✅ done"
+        log_to_ui("Exchange Rates fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["exchange_rates"] = "❌ failed"
+
+    if token_symbol:
+        try:
+            data = coingecko.search(token_symbol)
+            save_json(data, 'coingecko', chain_name, contract_address, 'search', user_id)
+            st.session_state.endpoint_status["search"] = "✅ done"
+            log_to_ui(f"Search for {token_symbol} done", "success")
+        except Exception as e:
+            st.session_state.endpoint_status["search"] = "❌ failed"
+    else:
+        st.session_state.endpoint_status["search"] = "⚠️ skip"
+
+    try:
+        data = coingecko.get_trending()
+        save_json(data, 'coingecko', chain_name, contract_address, 'trending', user_id)
+        st.session_state.endpoint_status["trending"] = "✅ done"
+        log_to_ui("Trending fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["trending"] = "❌ failed"
+
+    try:
+        data = coingecko.get_global()
+        save_json(data, 'coingecko', chain_name, contract_address, 'global', user_id)
+        st.session_state.endpoint_status["global"] = "✅ done"
+        log_to_ui("Global data fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["global"] = "❌ failed"
+
+    try:
+        data = coingecko.get_global_defi()
+        save_json(data, 'coingecko', chain_name, contract_address, 'global_defi', user_id)
+        st.session_state.endpoint_status["global_defi"] = "✅ done"
+        log_to_ui("Global DeFi fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["global_defi"] = "❌ failed"
+
+    # --- Onchain DEX ---
+    try:
+        data = coingecko.get_onchain_networks()
+        save_json(data, 'coingecko', chain_name, contract_address, 'onchain_networks', user_id)
+        st.session_state.endpoint_status["onchain_networks"] = "✅ done"
+        log_to_ui("Onchain Networks fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["onchain_networks"] = "❌ failed"
+
+    try:
+        data = coingecko.get_onchain_token(cg_chain, contract_address)
+        save_json(data, 'coingecko', chain_name, contract_address, 'onchain_token', user_id)
+        st.session_state.endpoint_status["onchain_token"] = "✅ done"
+        log_to_ui("Onchain Token fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["onchain_token"] = "❌ failed"
+
+    try:
+        data = coingecko.get_onchain_token_pools(cg_chain, contract_address)
+        save_json(data, 'coingecko', chain_name, contract_address, 'onchain_token_pools', user_id)
+        st.session_state.endpoint_status["onchain_token_pools"] = "✅ done"
+        log_to_ui("Onchain Token Pools fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["onchain_token_pools"] = "❌ failed"
+
+    try:
+        data = coingecko.get_onchain_trending_pools()
+        save_json(data, 'coingecko', chain_name, contract_address, 'onchain_trending_pools', user_id)
+        st.session_state.endpoint_status["onchain_trending_pools"] = "✅ done"
+        log_to_ui("Onchain Trending Pools fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["onchain_trending_pools"] = "❌ failed"
+
+    try:
+        data = coingecko.get_onchain_new_pools()
+        save_json(data, 'coingecko', chain_name, contract_address, 'onchain_new_pools', user_id)
+        st.session_state.endpoint_status["onchain_new_pools"] = "✅ done"
+        log_to_ui("Onchain New Pools fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["onchain_new_pools"] = "❌ failed"
+
+    # ==================== NANSEN ====================
+    log_to_ui("=" * 40, "info")
+    log_to_ui("NANSEN ENDPOINTS", "info")
+    log_to_ui("=" * 40, "info")
+
+    # --- Smart Money ---
+    try:
+        data = nansen.get_smart_money_netflow([nansen_chain])
+        save_json(data, 'nansen', chain_name, contract_address, 'sm_netflow', user_id)
+        st.session_state.endpoint_status["sm_netflow"] = "✅ done"
+        log_to_ui("Smart Money Netflow fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["sm_netflow"] = "❌ failed"
+
+    try:
+        data = nansen.get_smart_money_holdings([nansen_chain])
+        save_json(data, 'nansen', chain_name, contract_address, 'sm_holdings', user_id)
+        st.session_state.endpoint_status["sm_holdings"] = "✅ done"
+        log_to_ui("Smart Money Holdings fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["sm_holdings"] = "❌ failed"
+
+    try:
+        data = nansen.get_smart_money_dex_trades([nansen_chain])
+        save_json(data, 'nansen', chain_name, contract_address, 'sm_dex_trades', user_id)
+        st.session_state.endpoint_status["sm_dex_trades"] = "✅ done"
+        log_to_ui("Smart Money DEX Trades fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["sm_dex_trades"] = "❌ failed"
+
+    # --- Profiler (using contract_address as address) ---
+    try:
+        data = nansen.get_address_current_balance(contract_address, nansen_chain)
+        save_json(data, 'nansen', chain_name, contract_address, 'address_balance', user_id)
+        st.session_state.endpoint_status["address_balance"] = "✅ done"
+        log_to_ui("Address Balance fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["address_balance"] = "❌ failed"
+
+    try:
+        data = nansen.get_address_transactions(contract_address, nansen_chain)
+        save_json(data, 'nansen', chain_name, contract_address, 'address_transactions', user_id)
+        st.session_state.endpoint_status["address_transactions"] = "✅ done"
+        log_to_ui("Address Transactions fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["address_transactions"] = "❌ failed"
+
+    try:
+        data = nansen.get_address_related_wallets(contract_address, nansen_chain)
+        save_json(data, 'nansen', chain_name, contract_address, 'address_related_wallets', user_id)
+        st.session_state.endpoint_status["address_related_wallets"] = "✅ done"
+        log_to_ui("Address Related Wallets fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["address_related_wallets"] = "❌ failed"
+
+    try:
+        data = nansen.get_address_counterparties(contract_address, nansen_chain)
+        save_json(data, 'nansen', chain_name, contract_address, 'address_counterparties', user_id)
+        st.session_state.endpoint_status["address_counterparties"] = "✅ done"
+        log_to_ui("Address Counterparties fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["address_counterparties"] = "❌ failed"
+
+    try:
+        data = nansen.get_address_pnl(contract_address, nansen_chain)
+        save_json(data, 'nansen', chain_name, contract_address, 'address_pnl', user_id)
+        st.session_state.endpoint_status["address_pnl"] = "✅ done"
+        log_to_ui("Address PnL fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["address_pnl"] = "❌ failed"
+
+    # --- TGM Token ---
+    try:
+        data = nansen.get_token_screener([nansen_chain])
+        save_json(data, 'nansen', chain_name, contract_address, 'token_screener', user_id)
+        st.session_state.endpoint_status["token_screener"] = "✅ done"
+        log_to_ui("Token Screener fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["token_screener"] = "❌ failed"
+
+    try:
+        data = nansen.get_token_flows(contract_address, nansen_chain)
+        save_json(data, 'nansen', chain_name, contract_address, 'token_flows', user_id)
+        st.session_state.endpoint_status["token_flows"] = "✅ done"
+        log_to_ui("Token Flows fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["token_flows"] = "❌ failed"
+
+    try:
+        data = nansen.get_token_flow_intelligence(contract_address, nansen_chain)
+        save_json(data, 'nansen', chain_name, contract_address, 'flow_intelligence', user_id)
+        st.session_state.endpoint_status["flow_intelligence"] = "✅ done"
+        log_to_ui("Flow Intelligence fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["flow_intelligence"] = "❌ failed"
+
+    try:
+        data = nansen.get_token_who_bought_sold(contract_address, nansen_chain, start_date_str, end_date_str)
+        save_json(data, 'nansen', chain_name, contract_address, 'who_bought_sold', user_id)
+        st.session_state.endpoint_status["who_bought_sold"] = "✅ done"
+        log_to_ui("Who Bought/Sold fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["who_bought_sold"] = "❌ failed"
+
+    try:
+        data = nansen.get_token_dex_trades(contract_address, nansen_chain)
+        save_json(data, 'nansen', chain_name, contract_address, 'token_dex_trades', user_id)
+        st.session_state.endpoint_status["token_dex_trades"] = "✅ done"
+        log_to_ui("Token DEX Trades fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["token_dex_trades"] = "❌ failed"
+
+    try:
+        data = nansen.get_token_transfers(contract_address, nansen_chain, start_date_str, end_date_str)
+        save_json(data, 'nansen', chain_name, contract_address, 'transfers', user_id)
+        st.session_state.endpoint_status["transfers"] = "✅ done"
+        log_to_ui("Token Transfers fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["transfers"] = "❌ failed"
+
+    try:
+        data = nansen.get_token_holders(contract_address, nansen_chain)
+        save_json(data, 'nansen', chain_name, contract_address, 'holders', user_id)
+        st.session_state.endpoint_status["holders"] = "✅ done"
+        log_to_ui("Token Holders fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["holders"] = "❌ failed"
+
+    try:
+        data = nansen.get_token_pnl_leaderboard(contract_address, nansen_chain)
+        save_json(data, 'nansen', chain_name, contract_address, 'token_pnl_leaderboard', user_id)
+        st.session_state.endpoint_status["token_pnl_leaderboard"] = "✅ done"
+        log_to_ui("Token PnL Leaderboard fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["token_pnl_leaderboard"] = "❌ failed"
+
+    # --- TGM Perp ---
+    try:
+        data = nansen.get_perp_screener()
+        save_json(data, 'nansen', chain_name, contract_address, 'perp_screener', user_id)
+        st.session_state.endpoint_status["perp_screener"] = "✅ done"
+        log_to_ui("Perp Screener fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["perp_screener"] = "❌ failed"
+
+    if token_symbol:
+        try:
+            data = nansen.get_token_perp_trades(token_symbol, start_date_str, end_date_str)
+            save_json(data, 'nansen', chain_name, contract_address, 'perp_trades', user_id)
+            st.session_state.endpoint_status["perp_trades"] = "✅ done"
+            log_to_ui(f"Perp Trades for {token_symbol} fetched", "success")
+        except Exception as e:
+            st.session_state.endpoint_status["perp_trades"] = "❌ failed"
+
+        try:
+            data = nansen.get_token_perp_positions(token_symbol)
+            save_json(data, 'nansen', chain_name, contract_address, 'perp_positions', user_id)
+            st.session_state.endpoint_status["perp_positions"] = "✅ done"
+            log_to_ui(f"Perp Positions for {token_symbol} fetched", "success")
+        except Exception as e:
+            st.session_state.endpoint_status["perp_positions"] = "❌ failed"
+    else:
+        st.session_state.endpoint_status["perp_trades"] = "⚠️ skip"
+        st.session_state.endpoint_status["perp_positions"] = "⚠️ skip"
+
+    try:
+        data = nansen.get_perp_pnl_leaderboard()
+        save_json(data, 'nansen', chain_name, contract_address, 'perp_pnl_leaderboard', user_id)
+        st.session_state.endpoint_status["perp_pnl_leaderboard"] = "✅ done"
+        log_to_ui("Perp PnL Leaderboard fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["perp_pnl_leaderboard"] = "❌ failed"
+
+    # --- Portfolio ---
+    try:
+        data = nansen.get_defi_holdings([contract_address], [nansen_chain])
+        save_json(data, 'nansen', chain_name, contract_address, 'defi_holdings', user_id)
+        st.session_state.endpoint_status["defi_holdings"] = "✅ done"
+        log_to_ui("DeFi Holdings fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["defi_holdings"] = "❌ failed"
+
+    # ==================== DONE ====================
+    log_to_ui("=" * 40, "info")
+    total = len(ENDPOINT_MAPPING)
+    done = sum(1 for v in st.session_state.endpoint_status.values() if "done" in v)
+    log_to_ui(f"COMPLETED: {done}/{total} endpoints", "success")
     st.session_state.fetched_data['last_updated'] = datetime.now()
 
 
@@ -594,7 +889,7 @@ with tab1:
             log_placeholder = st.empty()
             
             with st.spinner("Fetching data from multiple sources..."):
-                fetch_all_data(chain, contract_address, period, log_placeholder)
+                fetch_all_data(chain, contract_address, period, log_placeholder, current_user)
             
             # Transition to Phase 3 on next rerun
             st.rerun()
@@ -671,7 +966,7 @@ with tab1:
                     source, key = ENDPOINT_MAPPING[endpoint_name]
                     st.subheader(f"Preview: {endpoint_name}")
                     
-                    data = load_latest_json(source, chain, contract_address, key)
+                    data = load_latest_json(source, chain, contract_address, key, current_user)
                     if data:
                         # Extract "data" list if exists (common API pattern)
                         if isinstance(data, dict) and "data" in data and isinstance(data["data"], list):
@@ -703,11 +998,11 @@ with tab2:
     
     if 'last_updated' in st.session_state.fetched_data:
         # Load Data
-        coin_info = load_latest_json('coingecko', chain, contract_address, 'coin_info')
-        dune_data = load_latest_json('dune', chain, contract_address, 'delta_balance')
-        flow_data = load_latest_json('nansen', chain, contract_address, 'flow_intelligence')
-        holders_data = load_latest_json('nansen', chain, contract_address, 'holders')
-        transfers_data = load_latest_json('nansen', chain, contract_address, 'transfers')
+        coin_info = load_latest_json('coingecko', chain, contract_address, 'coin_info', current_user)
+        dune_data = load_latest_json('dune', chain, contract_address, 'delta_balance', current_user)
+        flow_data = load_latest_json('nansen', chain, contract_address, 'flow_intelligence', current_user)
+        holders_data = load_latest_json('nansen', chain, contract_address, 'holders', current_user)
+        transfers_data = load_latest_json('nansen', chain, contract_address, 'transfers', current_user)
         
         # 1. Token Summary
         if coin_info:
