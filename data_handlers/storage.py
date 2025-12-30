@@ -13,14 +13,28 @@ _gcs_client = None
 _bq_client = None
 
 
+
 def _get_gcs_client():
     """Get or create GCS client (lazy loading)"""
     global _gcs_client
     if _gcs_client is None:
         from google.cloud import storage
-        _gcs_client = storage.Client.from_service_account_json(
-            GCP_CONFIG['SERVICE_ACCOUNT_FILE']
-        )
+        from google.oauth2 import service_account
+        
+        if 'CREDENTIALS_DICT' in GCP_CONFIG and GCP_CONFIG['CREDENTIALS_DICT']:
+            # Use credentials from dict (Streamlit Secrets)
+            creds = service_account.Credentials.from_service_account_info(
+                GCP_CONFIG['CREDENTIALS_DICT']
+            )
+            _gcs_client = storage.Client(
+                credentials=creds,
+                project=GCP_CONFIG['PROJECT_ID']
+            )
+        else:
+            # Use local file
+            _gcs_client = storage.Client.from_service_account_json(
+                GCP_CONFIG['SERVICE_ACCOUNT_FILE']
+            )
     return _gcs_client
 
 
@@ -29,9 +43,22 @@ def _get_bq_client():
     global _bq_client
     if _bq_client is None:
         from google.cloud import bigquery
-        _bq_client = bigquery.Client.from_service_account_json(
-            GCP_CONFIG['SERVICE_ACCOUNT_FILE']
-        )
+        from google.oauth2 import service_account
+
+        if 'CREDENTIALS_DICT' in GCP_CONFIG and GCP_CONFIG['CREDENTIALS_DICT']:
+            # Use credentials from dict (Streamlit Secrets)
+            creds = service_account.Credentials.from_service_account_info(
+                GCP_CONFIG['CREDENTIALS_DICT']
+            )
+            _bq_client = bigquery.Client(
+                credentials=creds,
+                project=GCP_CONFIG['PROJECT_ID']
+            )
+        else:
+            # Use local file
+            _bq_client = bigquery.Client.from_service_account_json(
+                GCP_CONFIG['SERVICE_ACCOUNT_FILE']
+            )
     return _bq_client
 
 

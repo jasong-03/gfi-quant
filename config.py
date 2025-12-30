@@ -51,13 +51,42 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, 'data')
 CACHE_DURATION = 300  # 5 minutes in seconds
 
+
+# Try to load GCP_CONFIG from local settings
+try:
+    from local_settings import GCP_CONFIG as LOCAL_GCP_CONFIG
+except ImportError:
+    LOCAL_GCP_CONFIG = {}
+
 # Google Cloud Configuration
-GCP_CONFIG = {
+
+# Google Cloud Configuration
+GCP_CREDENTIALS_DICT = None
+
+# 1. Try Streamlit Secrets (for Cloud Deployment)
+try:
+    if hasattr(st, 'secrets') and 'API_KEYS' in st.secrets and 'GOOGLE_APPLICATION_CREDENTIALS' in st.secrets['API_KEYS']:
+        GCP_CREDENTIALS_DICT = dict(st.secrets['API_KEYS']['GOOGLE_APPLICATION_CREDENTIALS'])
+except (NameError, AttributeError, KeyError):
+    pass
+
+# 2. Defaults (Local File)
+DEFAULT_GCP_CONFIG = {
     'PROJECT_ID': 'gfi-455410',
-    'SERVICE_ACCOUNT_FILE': os.path.join(BASE_DIR, 'gfi-455410-c5f5b0bf4d3a.json'),
+    'SERVICE_ACCOUNT_FILE': os.path.join(BASE_DIR, 'service-account-key.json'),
     'GCS_BUCKET': 'gfi-token-tracker-data',
     'BIGQUERY_DATASET': 'token_tracker',
 }
+
+# 3. Merge with Local Settings
+GCP_CONFIG = LOCAL_GCP_CONFIG or DEFAULT_GCP_CONFIG
+
+# If we found secrets, inject them into config
+if GCP_CREDENTIALS_DICT:
+    GCP_CONFIG['CREDENTIALS_DICT'] = GCP_CREDENTIALS_DICT
+    # Override project ID if present in credentials
+    if 'project_id' in GCP_CREDENTIALS_DICT:
+        GCP_CONFIG['PROJECT_ID'] = GCP_CREDENTIALS_DICT['project_id']
 
 # Storage mode: 'local', 'gcs', 'bigquery', 'all'
 STORAGE_MODE = get_key('STORAGE_MODE') or 'all'
