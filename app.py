@@ -1209,21 +1209,28 @@ with tab3:
 
 with tab4:
     st.header("Dune Export")
-    st.markdown("Execute raw SQL queries on Dune Analytics and save results to BigQuery/GCS")
+    st.markdown("Execute raw SQL queries on Dune Analytics and auto-save to BigQuery/GCS")
+
+    # Export name (required)
+    dune_export_name = st.text_input(
+        "Export Name",
+        placeholder="Enter export name (e.g., etf_flows, corn_transactions)...",
+        key="dune_export_name"
+    )
 
     # SQL Editor
     st.subheader("SQL Editor")
 
     # Sample query template
-    sample_sql = """-- Example: Get top token holders
+    sample_sql = """-- Example: Get ETH transactions
 SELECT
-    wallet_address,
-    token_balance,
-    token_symbol
-FROM tokens.balances
-WHERE blockchain = 'ethereum'
-    AND token_address = '0x...'
-ORDER BY token_balance DESC
+    block_time,
+    hash,
+    "from",
+    "to",
+    value / 1e18 as eth_value
+FROM ethereum.transactions
+WHERE block_time >= CURRENT_TIMESTAMP - INTERVAL '1' hour
 LIMIT 100"""
 
     # Code editor with monospace font
@@ -1232,7 +1239,7 @@ LIMIT 100"""
         value=sample_sql,
         height=300,
         key="dune_sql_editor",
-        help="Write your raw SQL query. Use Dune's table schemas."
+        help="Write your raw SQL query. Use Dune's table schemas. Remember to add LIMIT!"
     )
 
     # Add CSS for monospace font in text area
@@ -1246,30 +1253,26 @@ LIMIT 100"""
         </style>
     """, unsafe_allow_html=True)
 
-    # Query name (optional)
-    dune_query_name = st.text_input(
-        "Query Name (optional)",
-        placeholder="my_analysis_query",
-        key="dune_query_name"
-    )
-
     st.markdown("---")
 
-    # Execute button
+    # Check requirements
     dune_has_token = current_user and current_user != "anonymous"
+    dune_has_export_name = dune_export_name and dune_export_name.strip()
+    can_execute = dune_has_token and dune_has_export_name
+
     if not dune_has_token:
         st.warning("Enter token name in sidebar before executing")
+    elif not dune_has_export_name:
+        st.warning("Enter export name before executing")
 
-    col_exec, col_save = st.columns(2)
-
-    with col_exec:
-        execute_btn = st.button(
-            "Execute Query",
-            type="primary",
-            use_container_width=True,
-            disabled=not dune_has_token,
-            key="dune_execute_btn"
-        )
+    # Execute button
+    execute_btn = st.button(
+        "Execute & Save",
+        type="primary",
+        use_container_width=True,
+        disabled=not can_execute,
+        key="dune_execute_btn"
+    )
 
     # Initialize session state for dune results
     if 'dune_results' not in st.session_state:
@@ -1277,7 +1280,7 @@ LIMIT 100"""
     if 'dune_df' not in st.session_state:
         st.session_state.dune_df = None
 
-    # Execute query
+    # Execute query and auto-save
     if execute_btn:
         if dune_sql.strip():
             with st.spinner("Executing query on Dune Analytics..."):
@@ -1290,13 +1293,40 @@ LIMIT 100"""
                     if results.get('rows'):
                         df = pd.DataFrame(results['rows'])
                         st.session_state.dune_df = df
-                        st.success(f"Query executed successfully! {len(df)} rows returned.")
+                        st.success(f"Query executed! {len(df)} rows returned.")
+
+                        # Auto-save to GCS/BigQuery
+                        with st.spinner("Saving to BigQuery & GCS..."):
+                            export_data = {
+                                'export_name': dune_export_name,
+                                'query': dune_sql,
+                                'execution_id': results.get('execution_id'),
+                                'row_count': len(df),
+                                'columns': list(df.columns),
+                                'rows': results.get('rows', []),
+                                'metadata': results.get('metadata', {}),
+                                'exported_at': datetime.now().isoformat()
+                            }
+
+                            save_result = save_json(
+                                export_data,
+                                source='dune',
+                                chain='export',
+                                address=dune_export_name.strip().replace(' ', '_'),
+                                endpoint_name='query_results',
+                                user_id=current_user
+                            )
+
+                            if save_result:
+                                st.success(f"Saved to storage: {save_result}")
+                            else:
+                                st.warning("Query executed but storage save may have failed")
                     else:
                         st.session_state.dune_df = pd.DataFrame()
                         st.info("Query executed but returned no results.")
 
                 except Exception as e:
-                    st.error(f"Error executing query: {e}")
+                    st.error(f"Error: {e}")
                     st.session_state.dune_results = None
                     st.session_state.dune_df = None
         else:
@@ -1322,65 +1352,10 @@ LIMIT 100"""
         st.download_button(
             "Download CSV",
             csv_data,
-            file_name=f"dune_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            file_name=f"{dune_export_name or 'dune_export'}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
             mime="text/csv",
             key="dune_download_csv"
         )
-
-        st.markdown("---")
-
-        # Save to storage
-        st.subheader("Save to Storage")
-        save_col1, save_col2 = st.columns(2)
-
-        with save_col1:
-            save_table_name = st.text_input(
-                "Table/File Name",
-                value=f"dune_export_{datetime.now().strftime('%Y%m%d')}",
-                key="dune_save_name"
-            )
-
-        with save_col2:
-            st.markdown("<br>", unsafe_allow_html=True)
-            save_btn = st.button(
-                "Save to BigQuery & GCS",
-                type="secondary",
-                use_container_width=True,
-                key="dune_save_btn"
-            )
-
-        if save_btn:
-            with st.spinner("Saving to storage..."):
-                try:
-                    # Prepare data for storage
-                    export_data = {
-                        'query': dune_sql,
-                        'query_name': dune_query_name or 'unnamed',
-                        'query_id': st.session_state.dune_results.get('query_id'),
-                        'execution_id': st.session_state.dune_results.get('execution_id'),
-                        'row_count': len(st.session_state.dune_df),
-                        'columns': list(st.session_state.dune_df.columns),
-                        'rows': st.session_state.dune_results.get('rows', []),
-                        'exported_at': datetime.now().isoformat()
-                    }
-
-                    # Save using existing storage module
-                    result = save_json(
-                        export_data,
-                        source='dune',
-                        chain='export',
-                        address=save_table_name,
-                        endpoint_name='query_results',
-                        user_id=current_user
-                    )
-
-                    if result:
-                        st.success(f"Saved to storage: {result}")
-                    else:
-                        st.warning("Saved to local storage only (GCS/BigQuery may have failed)")
-
-                except Exception as e:
-                    st.error(f"Error saving to storage: {e}")
 
 with tab5:
     st.header("Social Listening")
