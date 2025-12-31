@@ -105,22 +105,26 @@ class NansenClient:
                 data["filters"]["value_usd"] = {"min": min_value_usd}
         return self._make_request('/profiler/address/current-balance', data)
 
-    def get_address_historical_balances(self, address, chain, page=1, per_page=100):
+    def get_address_historical_balances(self, address, chain, start_date=None, end_date=None, page=1, per_page=100):
         """Get historical holdings for an address"""
         data = {
             "address": address,
             "chain": chain,
             "pagination": {"page": page, "per_page": per_page}
         }
+        if start_date and end_date:
+            data["date"] = {"from": start_date, "to": end_date}
         return self._make_request('/profiler/address/historical-balances', data)
 
-    def get_address_transactions(self, address, chain, page=1, per_page=50):
+    def get_address_transactions(self, address, chain, start_date=None, end_date=None, page=1, per_page=50):
         """Get transaction list for an address"""
         data = {
             "address": address,
             "chain": chain,
             "pagination": {"page": page, "per_page": per_page}
         }
+        if start_date and end_date:
+            data["date"] = {"from": start_date, "to": end_date}
         return self._make_request('/profiler/address/transactions', data)
 
     def get_address_related_wallets(self, address, chain, page=1, per_page=50):
@@ -132,13 +136,15 @@ class NansenClient:
         }
         return self._make_request('/profiler/address/related-wallets', data)
 
-    def get_address_counterparties(self, address, chain, page=1, per_page=20):
+    def get_address_counterparties(self, address, chain, start_date=None, end_date=None, page=1, per_page=20):
         """Get top counterparties for an address"""
         data = {
             "address": address,
             "chain": chain,
             "pagination": {"page": page, "per_page": per_page}
         }
+        if start_date and end_date:
+            data["date"] = {"from": start_date, "to": end_date}
         return self._make_request('/profiler/address/counterparties', data)
 
     def get_address_pnl_summary(self, address, chain):
@@ -149,13 +155,15 @@ class NansenClient:
         }
         return self._make_request('/profiler/address/pnl-summary', data)
 
-    def get_address_pnl(self, address, chain, page=1, per_page=50):
+    def get_address_pnl(self, address, chain, start_date=None, end_date=None, page=1, per_page=50):
         """Get all past trades with PnL"""
         data = {
             "address": address,
             "chain": chain,
             "pagination": {"page": page, "per_page": per_page}
         }
+        if start_date and end_date:
+            data["date"] = {"from": start_date, "to": end_date}
         return self._make_request('/profiler/address/pnl', data)
 
     def get_address_labels(self, address, chain):
@@ -175,13 +183,15 @@ class NansenClient:
             data["address"] = address
         return self._make_request('/profiler/perp-positions', data)
 
-    def get_profiler_perp_trades(self, address=None, page=1, per_page=50):
+    def get_profiler_perp_trades(self, address=None, start_date=None, end_date=None, page=1, per_page=50):
         """Get Hyperliquid trades"""
         data = {
             "pagination": {"page": page, "per_page": per_page}
         }
         if address:
             data["address"] = address
+        if start_date and end_date:
+            data["date"] = {"from": start_date, "to": end_date}
         return self._make_request('/profiler/perp-trades', data)
 
     def get_profiler_perp_leaderboard(self, page=1, per_page=50):
@@ -353,11 +363,13 @@ class NansenClient:
 
     # ==================== PORTFOLIO ====================
 
-    def get_defi_holdings(self, addresses, chains=None, page=1, per_page=50):
+    def get_defi_holdings(self, addresses, chains=None, start_date=None, end_date=None, page=1, per_page=50):
         """Get DeFi positions across addresses"""
         data = {
             "addresses": addresses if isinstance(addresses, list) else [addresses],
             "chains": chains if chains else ["all"],
             "pagination": {"page": page, "per_page": per_page}
         }
+        if start_date and end_date:
+            data["date"] = {"from": start_date, "to": end_date}
         return self._make_request('/portfolio/defi-holdings', data)

@@ -1005,6 +1005,20 @@ with tab3:
             key="profiler_address"
         )
 
+    # Date range selector
+    st.markdown("**Date Range** (for endpoints that support date filter)")
+    date_col1, date_col2 = st.columns(2)
+    with date_col1:
+        prof_start_date = st.date_input("Start Date", value=datetime.now() - timedelta(days=30), key="prof_start")
+    with date_col2:
+        prof_end_date = st.date_input("End Date", value=datetime.now(), key="prof_end")
+
+    # Format dates for API
+    start_date_str = prof_start_date.strftime("%Y-%m-%d")
+    end_date_str = prof_end_date.strftime("%Y-%m-%d")
+
+    st.markdown("---")
+
     # Analyze button - disabled if no token name
     profiler_has_token = current_user and current_user != "anonymous"
     if not profiler_has_token:
@@ -1018,23 +1032,38 @@ with tab3:
                 try:
                     nansen = NansenClient()
 
-                    # Fetch all profiler data
-                    st.subheader("Wallet Balance")
+                    # 1. Address Current Balances (no date)
+                    st.subheader("1. Current Balances")
                     try:
                         balance_data = nansen.get_address_current_balance(profiler_address, nansen_chain)
                         if balance_data and 'data' in balance_data:
                             st.dataframe(balance_data['data'], use_container_width=True)
                         else:
                             st.json(balance_data)
-                        save_json(balance_data, 'nansen', profiler_chain, profiler_address, 'profiler_balance', current_user)
+                        save_json(balance_data, 'nansen', profiler_chain, profiler_address, 'profiler_current_balance', current_user)
                     except Exception as e:
-                        st.error(f"Balance error: {e}")
+                        st.error(f"Current Balance error: {e}")
 
                     st.markdown("---")
 
-                    st.subheader("Recent Transactions")
+                    # 2. Address Historical Balances (with date)
+                    st.subheader("2. Historical Balances")
                     try:
-                        tx_data = nansen.get_address_transactions(profiler_address, nansen_chain)
+                        hist_balance_data = nansen.get_address_historical_balances(profiler_address, nansen_chain, start_date_str, end_date_str)
+                        if hist_balance_data and 'data' in hist_balance_data:
+                            st.dataframe(hist_balance_data['data'], use_container_width=True)
+                        else:
+                            st.json(hist_balance_data)
+                        save_json(hist_balance_data, 'nansen', profiler_chain, profiler_address, 'profiler_historical_balances', current_user)
+                    except Exception as e:
+                        st.error(f"Historical Balances error: {e}")
+
+                    st.markdown("---")
+
+                    # 3. Address Transactions (with date)
+                    st.subheader("3. Transactions")
+                    try:
+                        tx_data = nansen.get_address_transactions(profiler_address, nansen_chain, start_date_str, end_date_str)
                         if tx_data and 'data' in tx_data:
                             st.dataframe(tx_data['data'], use_container_width=True)
                         else:
@@ -1045,22 +1074,10 @@ with tab3:
 
                     st.markdown("---")
 
-                    st.subheader("Related Wallets")
+                    # 4. Address Counterparties (with date)
+                    st.subheader("4. Counterparties")
                     try:
-                        related_data = nansen.get_address_related_wallets(profiler_address, nansen_chain)
-                        if related_data and 'data' in related_data:
-                            st.dataframe(related_data['data'], use_container_width=True)
-                        else:
-                            st.json(related_data)
-                        save_json(related_data, 'nansen', profiler_chain, profiler_address, 'profiler_related', current_user)
-                    except Exception as e:
-                        st.error(f"Related wallets error: {e}")
-
-                    st.markdown("---")
-
-                    st.subheader("Counterparties")
-                    try:
-                        counter_data = nansen.get_address_counterparties(profiler_address, nansen_chain)
+                        counter_data = nansen.get_address_counterparties(profiler_address, nansen_chain, start_date_str, end_date_str)
                         if counter_data and 'data' in counter_data:
                             st.dataframe(counter_data['data'], use_container_width=True)
                         else:
@@ -1071,9 +1088,24 @@ with tab3:
 
                     st.markdown("---")
 
-                    st.subheader("PnL Summary")
+                    # 5. Address Related Wallets (no date)
+                    st.subheader("5. Related Wallets")
                     try:
-                        pnl_data = nansen.get_address_pnl(profiler_address, nansen_chain)
+                        related_data = nansen.get_address_related_wallets(profiler_address, nansen_chain)
+                        if related_data and 'data' in related_data:
+                            st.dataframe(related_data['data'], use_container_width=True)
+                        else:
+                            st.json(related_data)
+                        save_json(related_data, 'nansen', profiler_chain, profiler_address, 'profiler_related_wallets', current_user)
+                    except Exception as e:
+                        st.error(f"Related Wallets error: {e}")
+
+                    st.markdown("---")
+
+                    # 6. Address PnL & Trade Performance (with date)
+                    st.subheader("6. PnL & Trade Performance")
+                    try:
+                        pnl_data = nansen.get_address_pnl(profiler_address, nansen_chain, start_date_str, end_date_str)
                         if pnl_data and 'data' in pnl_data:
                             st.dataframe(pnl_data['data'], use_container_width=True)
                         else:
@@ -1081,6 +1113,48 @@ with tab3:
                         save_json(pnl_data, 'nansen', profiler_chain, profiler_address, 'profiler_pnl', current_user)
                     except Exception as e:
                         st.error(f"PnL error: {e}")
+
+                    st.markdown("---")
+
+                    # 7. Address Perp Positions (address only)
+                    st.subheader("7. Perp Positions (Hyperliquid)")
+                    try:
+                        perp_pos_data = nansen.get_profiler_perp_positions(profiler_address)
+                        if perp_pos_data and 'data' in perp_pos_data:
+                            st.dataframe(perp_pos_data['data'], use_container_width=True)
+                        else:
+                            st.json(perp_pos_data)
+                        save_json(perp_pos_data, 'nansen', profiler_chain, profiler_address, 'profiler_perp_positions', current_user)
+                    except Exception as e:
+                        st.error(f"Perp Positions error: {e}")
+
+                    st.markdown("---")
+
+                    # 8. Address Perp Trades (address + date)
+                    st.subheader("8. Perp Trades (Hyperliquid)")
+                    try:
+                        perp_trades_data = nansen.get_profiler_perp_trades(profiler_address, start_date_str, end_date_str)
+                        if perp_trades_data and 'data' in perp_trades_data:
+                            st.dataframe(perp_trades_data['data'], use_container_width=True)
+                        else:
+                            st.json(perp_trades_data)
+                        save_json(perp_trades_data, 'nansen', profiler_chain, profiler_address, 'profiler_perp_trades', current_user)
+                    except Exception as e:
+                        st.error(f"Perp Trades error: {e}")
+
+                    st.markdown("---")
+
+                    # 9. Portfolio / DeFi Holdings (address + date)
+                    st.subheader("9. Portfolio / DeFi Holdings")
+                    try:
+                        portfolio_data = nansen.get_defi_holdings([profiler_address], [nansen_chain], start_date_str, end_date_str)
+                        if portfolio_data and 'data' in portfolio_data:
+                            st.dataframe(portfolio_data['data'], use_container_width=True)
+                        else:
+                            st.json(portfolio_data)
+                        save_json(portfolio_data, 'nansen', profiler_chain, profiler_address, 'profiler_portfolio', current_user)
+                    except Exception as e:
+                        st.error(f"Portfolio error: {e}")
 
                     st.success("Wallet analysis complete!")
 
