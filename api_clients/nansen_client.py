@@ -363,13 +363,9 @@ class NansenClient:
 
     # ==================== PORTFOLIO ====================
 
-    def get_defi_holdings(self, addresses, chains=None, start_date=None, end_date=None, page=1, per_page=50):
-        """Get DeFi positions across addresses"""
+    def get_defi_holdings(self, wallet_address):
+        """Get DeFi positions for a wallet address"""
         data = {
-            "addresses": addresses if isinstance(addresses, list) else [addresses],
-            "chains": chains if chains else ["all"],
-            "pagination": {"page": page, "per_page": per_page}
+            "wallet_address": wallet_address
         }
-        if start_date and end_date:
-            data["date"] = {"from": start_date, "to": end_date}
         return self._make_request('/portfolio/defi-holdings', data)

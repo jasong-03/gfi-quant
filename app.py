@@ -1116,45 +1116,53 @@ with tab3:
 
                     st.markdown("---")
 
-                    # 7. Address Perp Positions (address only)
+                    # 7. Address Perp Positions (Hyperliquid only)
                     st.subheader("7. Perp Positions (Hyperliquid)")
+                    st.caption("Note: Only works with Hyperliquid wallet addresses")
                     try:
                         perp_pos_data = nansen.get_profiler_perp_positions(profiler_address)
                         if perp_pos_data and 'data' in perp_pos_data:
                             st.dataframe(perp_pos_data['data'], use_container_width=True)
-                        else:
+                        elif perp_pos_data:
                             st.json(perp_pos_data)
+                        else:
+                            st.info("No perp positions found")
                         save_json(perp_pos_data, 'nansen', profiler_chain, profiler_address, 'profiler_perp_positions', current_user)
                     except Exception as e:
-                        st.error(f"Perp Positions error: {e}")
+                        st.warning(f"Perp Positions: {e}")
 
                     st.markdown("---")
 
-                    # 8. Address Perp Trades (address + date)
+                    # 8. Address Perp Trades (Hyperliquid only)
                     st.subheader("8. Perp Trades (Hyperliquid)")
+                    st.caption("Note: Only works with Hyperliquid wallet addresses")
                     try:
                         perp_trades_data = nansen.get_profiler_perp_trades(profiler_address, start_date_str, end_date_str)
                         if perp_trades_data and 'data' in perp_trades_data:
                             st.dataframe(perp_trades_data['data'], use_container_width=True)
-                        else:
+                        elif perp_trades_data:
                             st.json(perp_trades_data)
+                        else:
+                            st.info("No perp trades found")
                         save_json(perp_trades_data, 'nansen', profiler_chain, profiler_address, 'profiler_perp_trades', current_user)
                     except Exception as e:
-                        st.error(f"Perp Trades error: {e}")
+                        st.warning(f"Perp Trades: {e}")
 
                     st.markdown("---")
 
-                    # 9. Portfolio / DeFi Holdings (address + date)
+                    # 9. Portfolio / DeFi Holdings
                     st.subheader("9. Portfolio / DeFi Holdings")
                     try:
-                        portfolio_data = nansen.get_defi_holdings([profiler_address], [nansen_chain], start_date_str, end_date_str)
+                        portfolio_data = nansen.get_defi_holdings(profiler_address)
                         if portfolio_data and 'data' in portfolio_data:
                             st.dataframe(portfolio_data['data'], use_container_width=True)
-                        else:
+                        elif portfolio_data:
                             st.json(portfolio_data)
+                        else:
+                            st.info("No DeFi holdings found")
                         save_json(portfolio_data, 'nansen', profiler_chain, profiler_address, 'profiler_portfolio', current_user)
                     except Exception as e:
-                        st.error(f"Portfolio error: {e}")
+                        st.warning(f"Portfolio: {e}")
 
                     st.success("Wallet analysis complete!")
 
