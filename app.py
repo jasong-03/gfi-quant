@@ -8,7 +8,6 @@ import pandas as pd
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import time
-import base64
 from pathlib import Path
 
 from config import API_KEYS, SUPPORTED_CHAINS, SOURCE_ICONS
@@ -41,111 +40,17 @@ st.set_page_config(
 
 # Sidebar Configuration
 with st.sidebar:
-    st.header("⚙️ Configuration")
+    st.header("Configuration")
 
-    # User Selection
-    DEFAULT_MEMBERS = ["Andrew", "Minh", "Linh"]
-    if 'team_members' not in st.session_state:
-        st.session_state.team_members = DEFAULT_MEMBERS.copy()
+    # User Input (for BigQuery dataset naming)
+    current_user = st.text_input("Tên của bạn", placeholder="Nhập tên...", value="")
+    if current_user:
+        st.session_state.current_user = current_user
+    else:
+        st.session_state.current_user = "anonymous"
 
-    current_user = st.selectbox("👤 Bạn là ai?", st.session_state.team_members, index=0)
-    st.session_state.current_user = current_user
-
-    # Add new member
-    with st.expander("➕ Thêm thành viên"):
-        new_member = st.text_input("Tên mới", placeholder="Nhập tên...")
-        if st.button("Thêm", use_container_width=True):
-            if new_member and new_member not in st.session_state.team_members:
-                st.session_state.team_members.append(new_member)
-                st.rerun()
-
-    st.markdown("---")
-
-    # Theme Switcher
-    theme = st.selectbox("Theme", ["Dark", "Light"], index=0)
-
-    st.markdown("---")
-
-    st.markdown("### API Status & Credits")
-    
-    if 'api_usage' not in st.session_state:
-        st.session_state.api_usage = {}
-
-    def check_credits(api_name):
-        try:
-            if api_name == "Nansen":
-                client = NansenClient()
-                # Lightweight call to check connectivity/headers
-                client.get_token_holders("0x0000000000000000000000000000000000000000", "ethereum", page=1, per_page=1)
-                st.session_state.api_usage[api_name] = "✅ Connected"
-                # Nansen headers might contain rate limits but usually not total credits on standard plans
-                
-            elif api_name == "CoinGecko":
-                client = CoinGeckoClient()
-                client.get_coins_list() # Simple call
-                headers = getattr(client, 'last_headers', {})
-                # Check for rate limit headers
-                remaining = headers.get('x-rate-limit-remaining-month')
-                if remaining:
-                    st.session_state.api_usage[api_name] = f"✅ Credits: {remaining}"
-                else:
-                    st.session_state.api_usage[api_name] = "✅ Connected"
-
-            elif api_name == "Dune":
-                client = DuneClient()
-                # No simple ping, check execution status of a dummy ID or just assume connected if key present
-                # Credits often in x-dune-remaining-credits
-                # We can't easily make a valid call without spending credits or having a query ID.
-                # Just show Key status
-                st.session_state.api_usage[api_name] = "✅ Key Present"
-                
-            elif api_name == "DefiLlama":
-                 st.session_state.api_usage[api_name] = "✅ Public/Free"
-
-        except Exception as e:
-            st.session_state.api_usage[api_name] = f"❌ Error: {str(e)[:20]}..."
-
-    # Display API Status
-    api_list = ["Nansen", "CoinGecko", "Dune", "DefiLlama"]
-    
-    for api in api_list:
-        c1, c2 = st.columns([2, 1])
-        c1.write(f"**{api}**")
-        if c2.button("Check", key=f"check_{api}", use_container_width=True):
-            check_credits(api)
-        
-        status = st.session_state.api_usage.get(api, "Not checked")
-        st.caption(status)
-        st.markdown("---")
-    
-    # About Section
-    st.markdown("### About")
-    
-    def get_image_base64(path):
-        try:
-            with open(path, "rb") as image_file:
-                encoded_string = base64.b64encode(image_file.read()).decode()
-            return encoded_string
-        except Exception:
-            return None
-
-    icon_html = ""
-    if icon_path.exists():
-        icon_b64 = get_image_base64(icon_path)
-        if icon_b64:
-            icon_html = f'<a href="https://x.com/pupuOnW3" target="_blank"><img src="data:image/jpeg;base64,{icon_b64}" width="25" style="vertical-align: middle; margin-left: 5px; border-radius: 50%;"></a>'
-
-    st.markdown(f"""
-    Build with <3 by Andrew {icon_html}
-    
-    **Token Tracker Metrics** aggregates data from:
-    - DefiLlama
-    - Nansen
-    - CoinGecko  
-    - Dune Analytics
-    
-    Version: 1.0.0
-    """, unsafe_allow_html=True)
+# Default theme
+theme = "Dark"
 
 # Custom CSS based on Theme
 if theme == "Dark":
@@ -842,7 +747,7 @@ def fetch_all_data(chain_name, contract_address, period="3 months", log_placehol
 st.title("Token Tracker Metrics")
 
 # Tabs
-tab1, tab2, tab3 = st.tabs(["Tracking log/Enpoints", "Token Tracker", "Social Listening"])
+tab1, tab2, tab3, tab4 = st.tabs(["Tracking log/Enpoints", "Token Tracker", "Profiler", "Social Listening"])
 
 with tab1:
     st.header("Market Data Analysis")
@@ -1081,5 +986,106 @@ with tab2:
         st.info("Fetch data in 'Tracking log/Enpoints' tab to see visualizations.")
 
 with tab3:
+    st.header("Wallet Profiler (Nansen)")
+    st.markdown("Analyze any wallet address using Nansen Profiler API")
+
+    # Input section
+    prof_col1, prof_col2 = st.columns([1, 3])
+
+    with prof_col1:
+        profiler_chain = st.selectbox(
+            "Chain",
+            list(SUPPORTED_CHAINS.keys()),
+            index=0,
+            key="profiler_chain"
+        )
+
+    with prof_col2:
+        profiler_address = st.text_input(
+            "Wallet Address",
+            placeholder="0x... or wallet address",
+            key="profiler_address"
+        )
+
+    if st.button("Analyze Wallet", type="primary", use_container_width=True, key="profiler_btn"):
+        if profiler_address:
+            nansen_chain = SUPPORTED_CHAINS.get(profiler_chain, {}).get('nansen', 'ethereum')
+
+            with st.spinner("Fetching wallet data from Nansen..."):
+                try:
+                    nansen = NansenClient()
+
+                    # Fetch all profiler data
+                    st.subheader("Wallet Balance")
+                    try:
+                        balance_data = nansen.get_address_current_balance(profiler_address, nansen_chain)
+                        if balance_data and 'data' in balance_data:
+                            st.dataframe(balance_data['data'], use_container_width=True)
+                        else:
+                            st.json(balance_data)
+                        save_json(balance_data, 'nansen', profiler_chain, profiler_address, 'profiler_balance', current_user)
+                    except Exception as e:
+                        st.error(f"Balance error: {e}")
+
+                    st.markdown("---")
+
+                    st.subheader("Recent Transactions")
+                    try:
+                        tx_data = nansen.get_address_transactions(profiler_address, nansen_chain)
+                        if tx_data and 'data' in tx_data:
+                            st.dataframe(tx_data['data'], use_container_width=True)
+                        else:
+                            st.json(tx_data)
+                        save_json(tx_data, 'nansen', profiler_chain, profiler_address, 'profiler_transactions', current_user)
+                    except Exception as e:
+                        st.error(f"Transactions error: {e}")
+
+                    st.markdown("---")
+
+                    st.subheader("Related Wallets")
+                    try:
+                        related_data = nansen.get_address_related_wallets(profiler_address, nansen_chain)
+                        if related_data and 'data' in related_data:
+                            st.dataframe(related_data['data'], use_container_width=True)
+                        else:
+                            st.json(related_data)
+                        save_json(related_data, 'nansen', profiler_chain, profiler_address, 'profiler_related', current_user)
+                    except Exception as e:
+                        st.error(f"Related wallets error: {e}")
+
+                    st.markdown("---")
+
+                    st.subheader("Counterparties")
+                    try:
+                        counter_data = nansen.get_address_counterparties(profiler_address, nansen_chain)
+                        if counter_data and 'data' in counter_data:
+                            st.dataframe(counter_data['data'], use_container_width=True)
+                        else:
+                            st.json(counter_data)
+                        save_json(counter_data, 'nansen', profiler_chain, profiler_address, 'profiler_counterparties', current_user)
+                    except Exception as e:
+                        st.error(f"Counterparties error: {e}")
+
+                    st.markdown("---")
+
+                    st.subheader("PnL Summary")
+                    try:
+                        pnl_data = nansen.get_address_pnl(profiler_address, nansen_chain)
+                        if pnl_data and 'data' in pnl_data:
+                            st.dataframe(pnl_data['data'], use_container_width=True)
+                        else:
+                            st.json(pnl_data)
+                        save_json(pnl_data, 'nansen', profiler_chain, profiler_address, 'profiler_pnl', current_user)
+                    except Exception as e:
+                        st.error(f"PnL error: {e}")
+
+                    st.success("Wallet analysis complete!")
+
+                except Exception as e:
+                    st.error(f"Error initializing Nansen client: {e}")
+        else:
+            st.warning("Please enter a wallet address")
+
+with tab4:
     st.header("Social Listening")
     st.info("Social listening features coming soon...")
