@@ -1019,6 +1019,9 @@ with tab3:
 
     st.markdown("---")
 
+    # Optional: Address Labels (expensive - 500 credits)
+    call_labels = st.checkbox("Include Address Labels (500 credits per call)", value=False, key="call_labels")
+
     # Analyze button - disabled if no token name
     profiler_has_token = current_user and current_user != "anonymous"
     if not profiler_has_token:
@@ -1116,8 +1119,24 @@ with tab3:
 
                     st.markdown("---")
 
-                    # 7. Address Perp Positions (Hyperliquid only)
-                    st.subheader("7. Perp Positions (Hyperliquid)")
+                    # 7. Address Labels (optional - 500 credits!)
+                    if call_labels:
+                        st.subheader("7. Address Labels (500 credits)")
+                        try:
+                            labels_data = nansen.get_address_labels(profiler_address, nansen_chain)
+                            if labels_data and isinstance(labels_data, list):
+                                st.dataframe(labels_data, use_container_width=True)
+                            elif labels_data:
+                                st.json(labels_data)
+                            else:
+                                st.info("No labels found")
+                            save_json(labels_data, 'nansen', profiler_chain, profiler_address, 'profiler_labels', current_user)
+                        except Exception as e:
+                            st.warning(f"Labels: {e}")
+                        st.markdown("---")
+
+                    # 8. Address Perp Positions (Hyperliquid only)
+                    st.subheader("8. Perp Positions (Hyperliquid)")
                     st.caption("Note: Only works with Hyperliquid wallet addresses")
                     try:
                         perp_pos_data = nansen.get_profiler_perp_positions(profiler_address)

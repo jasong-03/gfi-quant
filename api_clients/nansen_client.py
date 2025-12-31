@@ -166,11 +166,17 @@ class NansenClient:
             data["date"] = {"from": start_date, "to": end_date}
         return self._make_request('/profiler/address/pnl', data)
 
-    def get_address_labels(self, address, chain):
-        """Get address labels (500 credits!)"""
+    def get_address_labels(self, address, chain, page=1, per_page=100):
+        """Get address labels (500 credits per call!)"""
         data = {
-            "address": address,
-            "chain": chain
+            "parameters": {
+                "chain": chain,
+                "address": address
+            },
+            "pagination": {
+                "page": page,
+                "recordsPerPage": per_page
+            }
         }
         return self._make_request('/profiler/address/labels', data)
 
