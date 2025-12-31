@@ -174,24 +174,20 @@ class NansenClient:
         }
         return self._make_request('/profiler/address/labels', data)
 
-    def get_profiler_perp_positions(self, address=None, page=1, per_page=50):
-        """Get Hyperliquid positions"""
+    def get_profiler_perp_positions(self, address):
+        """Get Hyperliquid positions for address (requires Hyperliquid wallet address)"""
         data = {
-            "pagination": {"page": page, "per_page": per_page}
+            "address": address
         }
-        if address:
-            data["address"] = address
         return self._make_request('/profiler/perp-positions', data)
 
-    def get_profiler_perp_trades(self, address=None, start_date=None, end_date=None, page=1, per_page=50):
-        """Get Hyperliquid trades"""
+    def get_profiler_perp_trades(self, address, start_date, end_date, page=1, per_page=50):
+        """Get Hyperliquid trades for address (requires Hyperliquid wallet address)"""
         data = {
+            "address": address,
+            "date": {"from": start_date, "to": end_date},
             "pagination": {"page": page, "per_page": per_page}
         }
-        if address:
-            data["address"] = address
-        if start_date and end_date:
-            data["date"] = {"from": start_date, "to": end_date}
         return self._make_request('/profiler/perp-trades', data)
 
     def get_profiler_perp_leaderboard(self, page=1, per_page=50):
