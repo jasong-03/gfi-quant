@@ -51,3 +51,70 @@ class DuneClient:
         Endpoint: GET /api/v1/execution/{execution_id}/results
         """
         return self._make_request("GET", f"/execution/{execution_id}/results")
+
+    def execute_sql(self, query_sql, query_name=None, timeout=300, poll_interval=2):
+        """
+        Execute raw SQL and wait for results.
+
+        Flow:
+        1. Create a temporary query with the SQL
+        2. Execute the query
+        3. Poll for completion
+        4. Return results
+
+        Args:
+            query_sql: Raw SQL to execute
+            query_name: Optional name for the query (default: auto-generated)
+            timeout: Max seconds to wait for results (default: 300s = 5min)
+            poll_interval: Seconds between status checks (default: 2s)
+
+        Returns:
+            dict with 'rows' (list of dicts) and 'metadata'
+        """
+        import time as time_module
+
+        # Generate query name if not provided
+        if not query_name:
+            query_name = f"gfi_query_{int(time_module.time())}"
+
+        # Step 1: Create query
+        create_response = self.create_query(query_name, query_sql)
+        query_id = create_response.get('query_id')
+        if not query_id:
+            raise Exception(f"Failed to create query: {create_response}")
+
+        # Step 2: Execute query
+        exec_response = self.execute_query(query_id)
+        execution_id = exec_response.get('execution_id')
+        if not execution_id:
+            raise Exception(f"Failed to execute query: {exec_response}")
+
+        # Step 3: Poll for completion
+        start_time = time_module.time()
+        while True:
+            elapsed = time_module.time() - start_time
+            if elapsed > timeout:
+                raise Exception(f"Query execution timed out after {timeout}s")
+
+            status_response = self.get_execution_status(execution_id)
+            state = status_response.get('state', '').lower()
+
+            if state == 'completed':
+                break
+            elif state in ('failed', 'cancelled'):
+                error = status_response.get('error', 'Unknown error')
+                raise Exception(f"Query execution {state}: {error}")
+
+            # Still pending/executing
+            time_module.sleep(poll_interval)
+
+        # Step 4: Get results
+        results = self.get_execution_results(execution_id)
+
+        return {
+            'query_id': query_id,
+            'execution_id': execution_id,
+            'rows': results.get('result', {}).get('rows', []),
+            'metadata': results.get('result', {}).get('metadata', {}),
+            'state': 'completed'
+        }
