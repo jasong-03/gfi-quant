@@ -1154,12 +1154,28 @@ with tab3:
                     st.subheader("9. Portfolio / DeFi Holdings")
                     try:
                         portfolio_data = nansen.get_defi_holdings(profiler_address)
-                        if portfolio_data and 'data' in portfolio_data:
-                            st.dataframe(portfolio_data['data'], use_container_width=True)
-                        elif portfolio_data:
-                            st.json(portfolio_data)
+                        if portfolio_data:
+                            # Display summary metrics
+                            if 'summary' in portfolio_data:
+                                summary = portfolio_data['summary']
+                                m1, m2, m3 = st.columns(3)
+                                m1.metric("Total Value", f"${summary.get('total_value_usd', 0):,.2f}")
+                                m2.metric("Total Assets", f"${summary.get('total_assets_usd', 0):,.2f}")
+                                m3.metric("Total Debts", f"${summary.get('total_debts_usd', 0):,.2f}")
+
+                                m4, m5, m6 = st.columns(3)
+                                m4.metric("Total Rewards", f"${summary.get('total_rewards_usd', 0):,.2f}")
+                                m5.metric("Token Count", summary.get('token_count', 0))
+                                m6.metric("Protocol Count", summary.get('protocol_count', 0))
+
+                            # Display protocols
+                            if 'protocols' in portfolio_data and portfolio_data['protocols']:
+                                st.markdown("**Protocols:**")
+                                st.dataframe(portfolio_data['protocols'], use_container_width=True)
+                            else:
+                                st.info("No active DeFi positions found")
                         else:
-                            st.info("No DeFi holdings found")
+                            st.info("No DeFi holdings data")
                         save_json(portfolio_data, 'nansen', profiler_chain, profiler_address, 'profiler_portfolio', current_user)
                     except Exception as e:
                         st.warning(f"Portfolio: {e}")
