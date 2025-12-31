@@ -29,7 +29,7 @@ st.set_page_config(
     page_title="Token Tracker",
     page_icon="📊",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
 # Sidebar Configuration
@@ -37,7 +37,7 @@ with st.sidebar:
     st.header("Configuration")
 
     # User Input (for BigQuery dataset naming)
-    current_user = st.text_input("Tên của bạn", placeholder="Nhập tên...", value="")
+    current_user = st.text_input("What is token name", placeholder="Enter token name...", value="")
     if current_user:
         st.session_state.current_user = current_user
     else:
