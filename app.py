@@ -770,11 +770,15 @@ with tab1:
             value="So11111111111111111111111111111111111111112"  # Example Solana address
         )
     
-    # Fetch Button
-    fetch_button = st.button("Fetch", type="primary", use_container_width=True)
-    
+    # Fetch Button - disabled if no token name
+    has_token_name = current_user and current_user != "anonymous"
+    fetch_button = st.button("Fetch", type="primary", use_container_width=True, disabled=not has_token_name)
+
+    if not has_token_name:
+        st.warning("⚠️ Nhập token name trong sidebar trước khi Fetch")
+
     st.markdown("---")
-    
+
     # Check Phase State
     has_data = 'last_updated' in st.session_state.fetched_data
 
@@ -1001,7 +1005,12 @@ with tab3:
             key="profiler_address"
         )
 
-    if st.button("Analyze Wallet", type="primary", use_container_width=True, key="profiler_btn"):
+    # Analyze button - disabled if no token name
+    profiler_has_token = current_user and current_user != "anonymous"
+    if not profiler_has_token:
+        st.warning("⚠️ Nhập token name trong sidebar trước khi Analyze")
+
+    if st.button("Analyze Wallet", type="primary", use_container_width=True, key="profiler_btn", disabled=not profiler_has_token):
         if profiler_address:
             nansen_chain = SUPPORTED_CHAINS.get(profiler_chain, {}).get('nansen', 'ethereum')
 
