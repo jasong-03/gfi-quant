@@ -8,3 +8,4 @@ watchdog
 google-cloud-storage
 google-cloud-bigquery
 google-auth
+dune-client

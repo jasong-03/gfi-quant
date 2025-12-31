@@ -1283,11 +1283,7 @@ LIMIT 100"""
             with st.spinner("Executing query on Dune Analytics..."):
                 try:
                     dune = DuneClient()
-                    results = dune.execute_sql(
-                        dune_sql,
-                        query_name=dune_query_name if dune_query_name else None,
-                        timeout=300
-                    )
+                    results = dune.run_sql(dune_sql)
                     st.session_state.dune_results = results
 
                     # Convert to DataFrame
