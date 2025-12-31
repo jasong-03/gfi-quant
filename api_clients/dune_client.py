@@ -2,8 +2,12 @@
 Dune Analytics API Client
 Uses official dune-client SDK for raw SQL execution
 """
+import logging
 from dune_client.client import DuneClient as OfficialDuneClient
 from config import API_KEYS
+
+# Suppress verbose dune_client logs
+logging.getLogger('dune_client').setLevel(logging.WARNING)
 
 
 class DuneClient:
