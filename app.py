@@ -25,15 +25,9 @@ from visualizations.charts import (
 from visualizations.tables import create_flow_intelligence_table, create_transfers_table
 
 # Page configuration
-try:
-    icon_path = Path(__file__).parent / "assets" / "icon.jpg"
-    page_icon = str(icon_path) if icon_path.exists() else "📊"
-except Exception:
-    page_icon = "📊"
-
 st.set_page_config(
     page_title="Token Tracker",
-    page_icon=page_icon,
+    page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded"
 )
