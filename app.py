@@ -775,7 +775,7 @@ with tab1:
     fetch_button = st.button("Fetch", type="primary", use_container_width=True, disabled=not has_token_name)
 
     if not has_token_name:
-        st.warning("⚠️ Nhập token name trong sidebar trước khi Fetch")
+        st.warning("⚠️ Enter token name in sidebar before Fetch")
 
     st.markdown("---")
 
@@ -1008,7 +1008,7 @@ with tab3:
     # Analyze button - disabled if no token name
     profiler_has_token = current_user and current_user != "anonymous"
     if not profiler_has_token:
-        st.warning("⚠️ Nhập token name trong sidebar trước khi Analyze")
+        st.warning("⚠️ Enter token name in sidebar before Analyze")
 
     if st.button("Analyze Wallet", type="primary", use_container_width=True, key="profiler_btn", disabled=not profiler_has_token):
         if profiler_address:
