@@ -164,7 +164,7 @@ SUPPORTED_CHAINS = {
     },
     'BSC': {
         'defillama': 'bsc',
-        'nansen': 'nmn',
+        'nansen': 'bnb',
         'coingecko': 'binance-smart-chain',
         'id': 'binancecoin'
     }
