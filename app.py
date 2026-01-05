@@ -1317,10 +1317,28 @@ LIMIT 100"""
                                 user_id=current_user
                             )
 
+                            # Show save status for each destination
                             if save_result:
-                                st.success(f"Saved to storage: {save_result}")
+                                if save_result.get('local'):
+                                    st.success(f"✅ Local: {save_result['local']}")
+
+                                gcs_result = save_result.get('gcs')
+                                if gcs_result and isinstance(gcs_result, str):
+                                    st.success(f"✅ GCS: {gcs_result}")
+                                elif gcs_result and isinstance(gcs_result, dict) and gcs_result.get('error'):
+                                    st.error(f"❌ GCS Error: {gcs_result['error']}")
+                                elif 'gcs' in save_result:
+                                    st.warning("⚠️ GCS: Failed to save")
+
+                                bq_result = save_result.get('bigquery')
+                                if bq_result and isinstance(bq_result, str):
+                                    st.success(f"✅ BigQuery: {bq_result}")
+                                elif bq_result and isinstance(bq_result, dict) and bq_result.get('error'):
+                                    st.error(f"❌ BigQuery Error: {bq_result['error']}")
+                                elif 'bigquery' in save_result:
+                                    st.warning("⚠️ BigQuery: Failed to save")
                             else:
-                                st.warning("Query executed but storage save may have failed")
+                                st.error("❌ All storage saves failed")
                     else:
                         st.session_state.dune_df = pd.DataFrame()
                         st.info("Query executed but returned no results.")

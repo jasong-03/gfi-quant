@@ -131,8 +131,8 @@ def _save_gcs(data, source, chain, address, endpoint_name, timestamp, user_id=No
 
         return f"gs://{GCP_CONFIG['GCS_BUCKET']}/{blob_path}"
     except Exception as e:
-        print(f"GCS save error: {e}")
-        return None
+        logger.error(f"GCS save error: {e}")
+        return {'error': str(e)}
 
 
 def _save_bigquery(data, source, chain, address, endpoint_name, timestamp, user_id=None):
@@ -189,13 +189,13 @@ def _save_bigquery(data, source, chain, address, endpoint_name, timestamp, user_
         # Insert row
         errors = client.insert_rows_json(table_ref, [row])
         if errors:
-            print(f"BigQuery insert errors: {errors}")
-            return None
+            logger.error(f"BigQuery insert errors: {errors}")
+            return {'error': str(errors)}
 
         return table_ref
     except Exception as e:
-        print(f"BigQuery save error: {e}")
-        return None
+        logger.error(f"BigQuery save error: {e}")
+        return {'error': str(e)}
 
 
 def save_json(data, source, chain, address, endpoint_name, user_id=None):
@@ -230,7 +230,8 @@ def save_json(data, source, chain, address, endpoint_name, user_id=None):
     if mode in ('bigquery', 'all'):
         results['bigquery'] = _save_bigquery(data, source, chain, address, endpoint_name, timestamp, user_id)
 
-    return results.get('local', results.get('gcs', results.get('bigquery')))
+    # Return all results dict instead of single path
+    return results
 
 
 def _load_local(source, chain, address, endpoint_name, user_id=None):
