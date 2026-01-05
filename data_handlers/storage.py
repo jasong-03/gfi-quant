@@ -198,6 +198,118 @@ def _save_bigquery(data, source, chain, address, endpoint_name, timestamp, user_
         return {'error': str(e)}
 
 
+def _infer_bq_type(value):
+    """Infer BigQuery type from Python value"""
+    if value is None:
+        return 'STRING'
+    elif isinstance(value, bool):
+        return 'BOOLEAN'
+    elif isinstance(value, int):
+        return 'INTEGER'
+    elif isinstance(value, float):
+        return 'FLOAT'
+    else:
+        return 'STRING'
+
+
+def save_dune_to_bigquery(rows_data, export_name, user_id=None):
+    """
+    Save Dune query results to BigQuery as proper table with columns.
+    Each row of data becomes a separate BigQuery row.
+
+    Args:
+        rows_data: List of dicts from Dune query results
+        export_name: Name for the table
+        user_id: User identifier for dataset naming
+
+    Returns:
+        table_ref or {'error': message}
+    """
+    if not rows_data or len(rows_data) == 0:
+        return {'error': 'No data to save'}
+
+    try:
+        from google.cloud import bigquery
+
+        client = _get_bq_client()
+        project_id = GCP_CONFIG['PROJECT_ID']
+
+        # Dataset: token_tracker_{user_id}
+        user_suffix = (user_id or 'unknown').lower().replace(' ', '_')
+        dataset_id = f"{GCP_CONFIG['BIGQUERY_DATASET']}_{user_suffix}"
+
+        # Create dataset if not exists
+        dataset_ref = f"{project_id}.{dataset_id}"
+        try:
+            client.get_dataset(dataset_ref)
+        except Exception:
+            dataset = bigquery.Dataset(dataset_ref)
+            dataset.location = 'asia-southeast1'
+            client.create_dataset(dataset, exists_ok=True)
+
+        # Table name from export_name (sanitized)
+        table_name = f"dune_{export_name}".replace('-', '_').replace(' ', '_').lower()
+        table_ref = f"{dataset_ref}.{table_name}"
+
+        # Infer schema from first row
+        first_row = rows_data[0]
+        schema = []
+        for col_name, value in first_row.items():
+            bq_type = _infer_bq_type(value)
+            # Sanitize column name
+            safe_col = col_name.replace(' ', '_').replace('-', '_').lower()
+            schema.append(bigquery.SchemaField(safe_col, bq_type, mode='NULLABLE'))
+
+        # Add metadata columns
+        schema.insert(0, bigquery.SchemaField('_ingested_at', 'TIMESTAMP', mode='NULLABLE'))
+
+        # Create or replace table
+        table = bigquery.Table(table_ref, schema=schema)
+
+        # Delete existing table if exists, then create new
+        try:
+            client.delete_table(table_ref)
+            logger.info(f"Deleted existing table: {table_ref}")
+        except Exception:
+            pass  # Table doesn't exist
+
+        client.create_table(table)
+        logger.info(f"Created table: {table_ref}")
+
+        # Prepare rows with sanitized column names
+        ingested_at = datetime.now().isoformat()
+        prepared_rows = []
+        for row in rows_data:
+            prepared_row = {'_ingested_at': ingested_at}
+            for col_name, value in row.items():
+                safe_col = col_name.replace(' ', '_').replace('-', '_').lower()
+                # Convert value to string if it's not a basic type
+                if value is not None and not isinstance(value, (bool, int, float, str)):
+                    value = str(value)
+                prepared_row[safe_col] = value
+            prepared_rows.append(prepared_row)
+
+        # Insert rows in batches of 500
+        batch_size = 500
+        total_errors = []
+        for i in range(0, len(prepared_rows), batch_size):
+            batch = prepared_rows[i:i + batch_size]
+            errors = client.insert_rows_json(table_ref, batch)
+            if errors:
+                total_errors.extend(errors)
+
+        if total_errors:
+            logger.error(f"BigQuery insert errors: {total_errors[:5]}")  # Log first 5 errors
+            return {'error': f'{len(total_errors)} rows failed to insert'}
+
+        logger.info(f"Inserted {len(prepared_rows)} rows to {table_ref}")
+        return table_ref
+
+    except Exception as e:
+        logger.error(f"BigQuery Dune save error: {e}")
+        return {'error': str(e)}
+
+
 def save_json(data, source, chain, address, endpoint_name, user_id=None):
     """
     Save raw API response based on STORAGE_MODE

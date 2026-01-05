@@ -14,7 +14,7 @@ from config import API_KEYS, SUPPORTED_CHAINS, SOURCE_ICONS
 from api_clients.nansen_client import NansenClient
 from api_clients.coingecko_client import CoinGeckoClient
 from api_clients.dune_client import DuneClient
-from data_handlers.storage import save_json, load_latest_json
+from data_handlers.storage import save_json, load_latest_json, save_dune_to_bigquery
 from utils.logger import log_to_ui as log_to_ui_util
 from utils.validators import validate_contract_address
 from visualizations.charts import (
@@ -1295,42 +1295,22 @@ LIMIT 100"""
                         st.session_state.dune_df = df
                         st.success(f"Query executed! {len(df)} rows returned.")
 
-                        # Auto-save to GCS/BigQuery
-                        with st.spinner("Saving to BigQuery & GCS..."):
-                            # Save only the actual data rows (not query/metadata)
+                        # Auto-save to BigQuery (proper table with columns)
+                        with st.spinner("Saving to BigQuery..."):
                             rows_data = results.get('rows', [])
+                            export_name_clean = dune_export_name.strip().replace(' ', '_')
 
-                            save_result = save_json(
-                                rows_data,  # Only save the rows
-                                source='dune',
-                                chain='export',
-                                address=dune_export_name.strip().replace(' ', '_'),
-                                endpoint_name='query_results',
+                            # Save to BigQuery as proper table
+                            bq_result = save_dune_to_bigquery(
+                                rows_data,
+                                export_name=export_name_clean,
                                 user_id=current_user
                             )
 
-                            # Show save status for each destination
-                            if save_result:
-                                if save_result.get('local'):
-                                    st.success(f"✅ Local: {save_result['local']}")
-
-                                gcs_result = save_result.get('gcs')
-                                if gcs_result and isinstance(gcs_result, str):
-                                    st.success(f"✅ GCS: {gcs_result}")
-                                elif gcs_result and isinstance(gcs_result, dict) and gcs_result.get('error'):
-                                    st.error(f"❌ GCS Error: {gcs_result['error']}")
-                                elif 'gcs' in save_result:
-                                    st.warning("⚠️ GCS: Failed to save")
-
-                                bq_result = save_result.get('bigquery')
-                                if bq_result and isinstance(bq_result, str):
-                                    st.success(f"✅ BigQuery: {bq_result}")
-                                elif bq_result and isinstance(bq_result, dict) and bq_result.get('error'):
-                                    st.error(f"❌ BigQuery Error: {bq_result['error']}")
-                                elif 'bigquery' in save_result:
-                                    st.warning("⚠️ BigQuery: Failed to save")
-                            else:
-                                st.error("❌ All storage saves failed")
+                            if bq_result and isinstance(bq_result, str):
+                                st.success(f"✅ BigQuery: {bq_result} ({len(rows_data)} rows)")
+                            elif bq_result and isinstance(bq_result, dict) and bq_result.get('error'):
+                                st.error(f"❌ BigQuery Error: {bq_result['error']}")
                     else:
                         st.session_state.dune_df = pd.DataFrame()
                         st.info("Query executed but returned no results.")
