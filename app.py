@@ -1297,19 +1297,11 @@ LIMIT 100"""
 
                         # Auto-save to GCS/BigQuery
                         with st.spinner("Saving to BigQuery & GCS..."):
-                            export_data = {
-                                'export_name': dune_export_name,
-                                'query': dune_sql,
-                                'execution_id': results.get('execution_id'),
-                                'row_count': len(df),
-                                'columns': list(df.columns),
-                                'rows': results.get('rows', []),
-                                'metadata': results.get('metadata', {}),
-                                'exported_at': datetime.now().isoformat()
-                            }
+                            # Save only the actual data rows (not query/metadata)
+                            rows_data = results.get('rows', [])
 
                             save_result = save_json(
-                                export_data,
+                                rows_data,  # Only save the rows
                                 source='dune',
                                 chain='export',
                                 address=dune_export_name.strip().replace(' ', '_'),
