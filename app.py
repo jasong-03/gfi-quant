@@ -14,6 +14,7 @@ from config import API_KEYS, SUPPORTED_CHAINS, SOURCE_ICONS
 from api_clients.nansen_client import NansenClient
 from api_clients.coingecko_client import CoinGeckoClient
 from api_clients.dune_client import DuneClient
+from api_clients.defillama_client import DefiLlamaClient
 from data_handlers.storage import save_json, load_latest_json, save_dune_to_bigquery
 from utils.logger import log_to_ui as log_to_ui_util
 from utils.validators import validate_contract_address
@@ -114,6 +115,35 @@ if 'current_user' not in st.session_state:
     st.session_state.current_user = None
 
 ENDPOINT_MAPPING = {
+    # ==================== DefiLlama ====================
+    # TVL
+    "DL: All Protocols TVL": ("defillama", "all_protocols"),
+    "DL: Protocol TVL": ("defillama", "protocol_tvl"),
+    "DL: Chain TVL": ("defillama", "chain_tvl"),
+    "DL: All Chains TVL": ("defillama", "all_chains"),
+    # Prices
+    "DL: Current Prices": ("defillama", "current_prices"),
+    "DL: Price Chart": ("defillama", "price_chart"),
+    "DL: Price Change %": ("defillama", "price_percentage"),
+    # Stablecoins
+    "DL: Stablecoins": ("defillama", "stablecoins"),
+    "DL: Stablecoin Chains": ("defillama", "stablecoin_chains"),
+    # Yields
+    "DL: Yield Pools": ("defillama", "yield_pools"),
+    # DEX
+    "DL: DEX Overview": ("defillama", "dex_overview"),
+    "DL: DEX Chain Volume": ("defillama", "dex_chain_volume"),
+    # Fees
+    "DL: Fees Overview": ("defillama", "fees_overview"),
+    "DL: Fees Chain": ("defillama", "fees_chain"),
+    # Bridges
+    "DL: Bridges": ("defillama", "bridges"),
+    "DL: Bridge Volume": ("defillama", "bridge_volume"),
+    # Other
+    "DL: Open Interest": ("defillama", "open_interest"),
+    "DL: Hacks": ("defillama", "hacks"),
+    "DL: Raises": ("defillama", "raises"),
+
     # ==================== CoinGecko ====================
     # Simple/Price
     "CG: Simple Price": ("coingecko", "simple_price"),
@@ -183,8 +213,13 @@ ENDPOINT_MAPPING = {
 def get_endpoint_list():
     """Get the endpoint status list with sorting - auto-generated from ENDPOINT_MAPPING"""
     endpoints = []
+    source_display_map = {
+        "coingecko": "CoinGecko",
+        "nansen": "Nansen",
+        "defillama": "DefiLlama"
+    }
     for name, (source, key) in ENDPOINT_MAPPING.items():
-        source_display = "CoinGecko" if source == "coingecko" else "Nansen"
+        source_display = source_display_map.get(source, source.title())
         endpoints.append({
             "Endpoint": name,
             "Source": source_display,
@@ -298,14 +333,178 @@ def fetch_all_data(chain_name, contract_address, period="3 months", log_placehol
         log_to_ui("Initializing API clients...", "info")
         nansen = NansenClient()
         coingecko = CoinGeckoClient()
+        defillama = DefiLlamaClient()
     except Exception as e:
         log_to_ui(f"Client init error: {str(e)}", "error")
         return
 
     cg_chain = chain_config.get('coingecko')
     nansen_chain = chain_config.get('nansen')
+    dl_chain = chain_config.get('defillama', chain_name.lower())
     token_symbol = None
     coin_id = None
+
+    # ==================== DEFILLAMA ====================
+    log_to_ui("=" * 40, "info")
+    log_to_ui("DEFILLAMA ENDPOINTS", "info")
+    log_to_ui("=" * 40, "info")
+
+    # TVL Endpoints
+    try:
+        data = defillama.get_all_protocols()
+        save_json(data, 'defillama', chain_name, contract_address, 'all_protocols', user_id)
+        st.session_state.endpoint_status["all_protocols"] = "✅ done"
+        log_to_ui(f"All Protocols TVL: {len(data)} protocols", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["all_protocols"] = "❌ failed"
+        log_to_ui(f"All Protocols error: {str(e)[:50]}", "error")
+
+    try:
+        data = defillama.get_historical_chain_tvl(dl_chain)
+        save_json(data, 'defillama', chain_name, contract_address, 'chain_tvl', user_id)
+        st.session_state.endpoint_status["chain_tvl"] = "✅ done"
+        log_to_ui(f"Chain TVL for {dl_chain} fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["chain_tvl"] = "❌ failed"
+
+    try:
+        data = defillama.get_all_chains()
+        save_json(data, 'defillama', chain_name, contract_address, 'all_chains', user_id)
+        st.session_state.endpoint_status["all_chains"] = "✅ done"
+        log_to_ui(f"All Chains TVL: {len(data)} chains", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["all_chains"] = "❌ failed"
+
+    # Price Endpoints
+    coin_identifier = f"{dl_chain}:{contract_address}"
+    try:
+        data = defillama.get_current_prices([coin_identifier])
+        save_json(data, 'defillama', chain_name, contract_address, 'current_prices', user_id)
+        st.session_state.endpoint_status["current_prices"] = "✅ done"
+        log_to_ui("Current Prices fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["current_prices"] = "❌ failed"
+
+    try:
+        data = defillama.get_price_chart([coin_identifier])
+        save_json(data, 'defillama', chain_name, contract_address, 'price_chart', user_id)
+        st.session_state.endpoint_status["price_chart"] = "✅ done"
+        log_to_ui("Price Chart fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["price_chart"] = "❌ failed"
+
+    try:
+        data = defillama.get_price_percentage_change([coin_identifier])
+        save_json(data, 'defillama', chain_name, contract_address, 'price_percentage', user_id)
+        st.session_state.endpoint_status["price_percentage"] = "✅ done"
+        log_to_ui("Price Percentage Change fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["price_percentage"] = "❌ failed"
+
+    # Stablecoins Endpoints
+    try:
+        data = defillama.get_stablecoins()
+        save_json(data, 'defillama', chain_name, contract_address, 'stablecoins', user_id)
+        st.session_state.endpoint_status["stablecoins"] = "✅ done"
+        log_to_ui("Stablecoins fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["stablecoins"] = "❌ failed"
+
+    try:
+        data = defillama.get_stablecoin_chains()
+        save_json(data, 'defillama', chain_name, contract_address, 'stablecoin_chains', user_id)
+        st.session_state.endpoint_status["stablecoin_chains"] = "✅ done"
+        log_to_ui("Stablecoin Chains fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["stablecoin_chains"] = "❌ failed"
+
+    # Yields Endpoints
+    try:
+        data = defillama.get_yield_pools()
+        save_json(data, 'defillama', chain_name, contract_address, 'yield_pools', user_id)
+        st.session_state.endpoint_status["yield_pools"] = "✅ done"
+        log_to_ui("Yield Pools fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["yield_pools"] = "❌ failed"
+
+    # DEX Endpoints
+    try:
+        data = defillama.get_dex_overview()
+        save_json(data, 'defillama', chain_name, contract_address, 'dex_overview', user_id)
+        st.session_state.endpoint_status["dex_overview"] = "✅ done"
+        log_to_ui("DEX Overview fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["dex_overview"] = "❌ failed"
+
+    try:
+        data = defillama.get_dex_overview_chain(dl_chain)
+        save_json(data, 'defillama', chain_name, contract_address, 'dex_chain_volume', user_id)
+        st.session_state.endpoint_status["dex_chain_volume"] = "✅ done"
+        log_to_ui(f"DEX Chain Volume for {dl_chain} fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["dex_chain_volume"] = "❌ failed"
+
+    # Fees Endpoints
+    try:
+        data = defillama.get_fees_overview()
+        save_json(data, 'defillama', chain_name, contract_address, 'fees_overview', user_id)
+        st.session_state.endpoint_status["fees_overview"] = "✅ done"
+        log_to_ui("Fees Overview fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["fees_overview"] = "❌ failed"
+
+    try:
+        data = defillama.get_fees_overview_chain(dl_chain)
+        save_json(data, 'defillama', chain_name, contract_address, 'fees_chain', user_id)
+        st.session_state.endpoint_status["fees_chain"] = "✅ done"
+        log_to_ui(f"Fees Chain for {dl_chain} fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["fees_chain"] = "❌ failed"
+
+    # Bridges Endpoints
+    try:
+        data = defillama.get_bridges()
+        save_json(data, 'defillama', chain_name, contract_address, 'bridges', user_id)
+        st.session_state.endpoint_status["bridges"] = "✅ done"
+        log_to_ui("Bridges fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["bridges"] = "❌ failed"
+
+    try:
+        data = defillama.get_bridge_volume(dl_chain)
+        save_json(data, 'defillama', chain_name, contract_address, 'bridge_volume', user_id)
+        st.session_state.endpoint_status["bridge_volume"] = "✅ done"
+        log_to_ui(f"Bridge Volume for {dl_chain} fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["bridge_volume"] = "❌ failed"
+
+    # Other Endpoints
+    try:
+        data = defillama.get_open_interest()
+        save_json(data, 'defillama', chain_name, contract_address, 'open_interest', user_id)
+        st.session_state.endpoint_status["open_interest"] = "✅ done"
+        log_to_ui("Open Interest fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["open_interest"] = "❌ failed"
+
+    try:
+        data = defillama.get_hacks()
+        save_json(data, 'defillama', chain_name, contract_address, 'hacks', user_id)
+        st.session_state.endpoint_status["hacks"] = "✅ done"
+        log_to_ui(f"Hacks: {len(data)} incidents", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["hacks"] = "❌ failed"
+
+    try:
+        data = defillama.get_raises()
+        save_json(data, 'defillama', chain_name, contract_address, 'raises', user_id)
+        st.session_state.endpoint_status["raises"] = "✅ done"
+        log_to_ui("Raises fetched", "success")
+    except Exception as e:
+        st.session_state.endpoint_status["raises"] = "❌ failed"
+
+    # Protocol TVL - skip as needs protocol name
+    st.session_state.endpoint_status["protocol_tvl"] = "⚠️ skip"
 
     # ==================== COINGECKO ====================
     log_to_ui("=" * 40, "info")
