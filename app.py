@@ -9,6 +9,10 @@ import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import time
 from pathlib import Path
+from collections import deque
+
+from streamlit_elements import elements, mui, html, nivo, dashboard
+from orderbook_sync import OrderbookEngineSync
 
 from config import API_KEYS, SUPPORTED_CHAINS, SOURCE_ICONS
 from api_clients.nansen_client import NansenClient
@@ -113,6 +117,359 @@ if 'preview_endpoint' not in st.session_state:
     st.session_state.preview_endpoint = None
 if 'current_user' not in st.session_state:
     st.session_state.current_user = None
+
+# CDC Tracker Session State
+if 'cdc_engine' not in st.session_state:
+    st.session_state.cdc_engine = None
+if 'cdc_running' not in st.session_state:
+    st.session_state.cdc_running = False
+if 'cdc_active_symbol' not in st.session_state:
+    st.session_state.cdc_active_symbol = "BTC/USDT"
+if 'cdc_chart_history' not in st.session_state:
+    st.session_state.cdc_chart_history = {
+        'timestamps': deque(maxlen=100),
+        'prices': {},
+        'imbalance': {},
+        'cvd_5m': {},
+        'cvd_1h': {},
+        'cvd_12h': {},
+        'cvd_24h': {}
+    }
+
+# --- CDC Tracker Helper Functions ---
+def init_cdc_engine_if_needed(target_symbol):
+    """Initialize the engine only if the symbol has changed or engine is missing."""
+    if st.session_state.cdc_engine is None or st.session_state.cdc_engine.symbol != target_symbol:
+        with st.spinner(f"Initializing exchanges for {target_symbol}..."):
+            engine = OrderbookEngineSync(['binance', 'coinbase', 'bybit', 'hyperliquid'], target_symbol, depth=30)
+            engine.init()
+            st.session_state.cdc_engine = engine
+            st.session_state.cdc_chart_history = {
+                'timestamps': deque(maxlen=100),
+                'prices': {},
+                'imbalance': {},
+                'cvd_5m': {},
+                'cvd_1h': {},
+                'cvd_12h': {},
+                'cvd_24h': {}
+            }
+
+def update_cdc_chart_history(data):
+    """Append new data point to chart history."""
+    history = st.session_state.cdc_chart_history
+    now = datetime.now().strftime("%H:%M:%S")
+    history['timestamps'].append(now)
+    
+    for r in data:
+        ex_id = r['id']
+        
+        # Initialize deques if not present
+        if ex_id not in history['prices']:
+            history['prices'][ex_id] = deque(maxlen=100)
+            history['imbalance'][ex_id] = deque(maxlen=20)
+            history['cvd_5m'][ex_id] = deque(maxlen=100)
+            history['cvd_1h'][ex_id] = deque(maxlen=100)
+            history['cvd_12h'][ex_id] = deque(maxlen=100)
+            history['cvd_24h'][ex_id] = deque(maxlen=100)
+        
+        history['prices'][ex_id].append(r['price'])
+        history['imbalance'][ex_id].append(r['imbalance'])
+        history['cvd_5m'][ex_id].append(r['cvd_5m'] if r['id'] != 'hyperliquid' else 0)
+        history['cvd_1h'][ex_id].append(r['cvd_1h'] if r['id'] != 'hyperliquid' else 0)
+        history['cvd_12h'][ex_id].append(r['cvd_12h'] if r['id'] != 'hyperliquid' else 0)
+        history['cvd_24h'][ex_id].append(r['cvd_24h'] if r['id'] != 'hyperliquid' else 0)
+
+def build_cdc_chart_data(cvd_key):
+    """Build Nivo line chart data for a specific CVD window."""
+    history = st.session_state.cdc_chart_history
+    timestamps = list(history['timestamps'])
+    
+    if not timestamps:
+        return [], []
+    
+    # Price line (use first available exchange)
+    price_data = []
+    cvd_data = []
+    
+    for ex_id, prices in history['prices'].items():
+        price_list = list(prices)
+        # CVD series per exchange
+        cvd_list = list(history[cvd_key].get(ex_id, []))
+        if ex_id != 'hyperliquid' and cvd_list:
+            cvd_data.append({
+                "id": ex_id.upper(),
+                "data": [{"x": timestamps[i], "y": round(cvd_list[i], 2)} for i in range(len(cvd_list))]
+            })
+    
+    return price_data, cvd_data
+
+def render_cdc_dashboard(data, ohlcv_data=None):
+    if not data:
+        st.warning("Waiting for data...")
+        return
+    
+    # Update history
+    update_cdc_chart_history(data)
+    
+    history = st.session_state.cdc_chart_history
+    timestamps = list(history['timestamps'])
+
+    # 1. Market Overview (Custom Table with Plotly Sparklines)
+    # Header
+    cols = st.columns([1.2, 1, 1.2, 3, 1.2, 1.2])
+    cols[0].markdown("**Exchange**")
+    cols[1].markdown("**Price**")
+    cols[2].markdown("**Imbalance**")
+    cols[3].markdown("**Imbalance History (20)**")
+    cols[4].markdown("**CVD 5m**")
+    cols[5].markdown("**CVD 1h**")
+
+    for r in data:
+        ex_id = r['id']
+        imbal_hist = list(st.session_state.cdc_chart_history['imbalance'].get(ex_id, []))
+        
+        c = st.columns([1.2, 1, 1.2, 3, 1.2, 1.2])
+        c[0].write(ex_id.upper())
+        c[1].write(f"{r['price']:.4f}")
+        c[2].write(f"{r['imbalance']:.2f}")
+        
+        # Sparkline
+        if imbal_hist:
+            colors = ['#0ECB81' if v >= 0 else '#F6465D' for v in imbal_hist]
+            fig = go.Figure(go.Bar(
+                x=list(range(len(imbal_hist))),
+                y=imbal_hist,
+                marker_color=colors,
+                showlegend=False
+            ))
+            fig.update_layout(
+                margin=dict(l=0, r=0, t=0, b=0),
+                height=35,
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                xaxis=dict(visible=False, fixedrange=True),
+                yaxis=dict(visible=False, fixedrange=True),
+                dragmode=False,
+                bargap=0.1
+            )
+            c[3].plotly_chart(fig, use_container_width=True, config={'displayModeBar': False, 'staticPlot': True})
+        else:
+            c[3].write("-")
+            
+        c[4].write(f"{r['cvd_5m']:.2f}" if r['id'] != 'hyperliquid' else "N/A")
+        c[5].write(f"{r['cvd_1h']:.2f}" if r['id'] != 'hyperliquid' else "N/A")
+    
+    st.divider()
+
+    with elements("dashboard"):
+        layout = [
+            dashboard.Item("cvd_5m", 0, 0, 6, 4, isDraggable=True, isResizable=True),
+            dashboard.Item("cvd_1h", 6, 0, 6, 4, isDraggable=True, isResizable=True),
+            dashboard.Item("cvd_12h", 0, 4, 6, 4, isDraggable=True, isResizable=True),
+            dashboard.Item("cvd_24h", 6, 4, 6, 4, isDraggable=True, isResizable=True),
+            dashboard.Item("agg_ob", 0, 8, 6, 5, isDraggable=True, isResizable=True),
+            dashboard.Item("price_chart", 0, 14, 12, 4, isDraggable=True, isResizable=True),
+        ]
+
+        for i, r in enumerate(data):
+            layout.append(dashboard.Item(f"ob_{r['id']}", 6 + (i % 2) * 3, 8 + (i // 2) * 3, 3, 3, isDraggable=False, isResizable=False))
+
+        with dashboard.Grid(layout):
+            # 2-5. CVD Time-Series Charts (Line)
+            for timeframe, key in [("CVD 5m", "cvd_5m"), ("CVD 1h", "cvd_1h"), ("CVD 12h", "cvd_12h"), ("CVD 24h", "cvd_24h")]:
+                with mui.Paper(key=key, sx={"padding": 2}):
+                    mui.Typography(timeframe, variant="h6")
+                    
+                    price_data, cvd_data = build_cdc_chart_data(key)
+                    
+                    if not cvd_data:
+                        mui.Typography("Collecting data...", variant="body2")
+                    else:
+                        with html.div(style={"height": 280}):
+                            nivo.Line(
+                                data=cvd_data,
+                                margin={"top": 20, "right": 110, "bottom": 40, "left": 60},
+                                xScale={"type": "point"},
+                                yScale={
+                                    "type": "linear",
+                                    "min": "auto",
+                                    "max": "auto",
+                                    "stacked": False,
+                                    "reverse": False
+                                },
+                                axisTop=None,
+                                axisRight=None,
+                                axisBottom={
+                                    "tickSize": 5,
+                                    "tickPadding": 5,
+                                    "tickRotation": -45,
+                                },
+                                axisLeft={
+                                    "tickSize": 5,
+                                    "tickPadding": 5,
+                                    "tickRotation": 0,
+                                },
+                                enableGridY=False,
+                                enableGridX=False,
+                                enablePoints=False,
+                                useMesh=True,
+                                animate=False,
+                                colors=["#FCD535", "#0052FF", "#965F2D"],
+                                legends=[
+                                    {
+                                        "anchor": "bottom-right",
+                                        "direction": "column",
+                                        "justify": False,
+                                        "translateX": 100,
+                                        "translateY": 0,
+                                        "itemsSpacing": 0,
+                                        "itemDirection": "left-to-right",
+                                        "itemWidth": 80,
+                                        "itemHeight": 20,
+                                        "itemOpacity": 0.75,
+                                        "symbolSize": 12,
+                                        "symbolShape": "circle",
+                                        "symbolBorderColor": "rgba(0, 0, 0, .5)",
+                                    }
+                                ],
+                                theme={
+                                    "textColor": "#eaecef",
+                                    "axis": {
+                                        "domain": {
+                                            "line": {
+                                                "stroke": "#777777",
+                                                "strokeWidth": 1
+                                            }
+                                        },
+                                        "ticks": {
+                                            "line": {
+                                                "stroke": "#777777",
+                                                "strokeWidth": 1
+                                            },
+                                            "text": {
+                                                "fill": "#eaecef"
+                                            }
+                                        },
+                                        "legend": {
+                                            "text": {
+                                                "fill": "#eaecef"
+                                            }
+                                        }
+                                    },
+                                    "grid": {
+                                        "line": {
+                                            "stroke": "#444444"
+                                        }
+                                    },
+                                    "legends": {
+                                        "text": {
+                                            "fill": "#eaecef"
+                                        }
+                                    },
+                                    "tooltip": {
+                                        "container": {
+                                            "background": "#1e2329",
+                                            "color": "#eaecef",
+                                            "fontSize": 12
+                                        }
+                                    },
+                                    "crosshair": {
+                                        "line": {
+                                            "stroke": "#eaecef",
+                                            "strokeWidth": 1,
+                                            "strokeOpacity": 0.35,
+                                        },
+                                    }
+                                }
+                            )
+
+            # 6. Aggregated Orderbook
+            with mui.Paper(key="agg_ob", sx={"padding": 2, "overflow": "auto", "backgroundColor": "#0b0e11"}):
+                mui.Typography("Aggregated Orderbook", variant="h6", sx={"color": "#eaecef", "marginBottom": 1})
+                
+                agg_bids = {}
+                agg_asks = {}
+                for r in data:
+                    for b in r['bids'][:15]: agg_bids[b[0]] = agg_bids.get(b[0], 0) + b[1]
+                    for a in r['asks'][:15]: agg_asks[a[0]] = agg_asks.get(a[0], 0) + a[1]
+                
+                sorted_bids = sorted(agg_bids.items(), key=lambda x: x[0], reverse=True)[:10]
+                sorted_asks = sorted(agg_asks.items(), key=lambda x: x[0])[:10]
+                sorted_asks = list(reversed(sorted_asks))
+
+                with html.div(style={"fontFamily": "monospace", "fontSize": "14px"}):
+                    with html.div(style={"display": "flex", "justifyContent": "space-between", "color": "#848e9c", "padding": "4px 8px", "borderBottom": "1px solid #2b3139"}):
+                        html.span("Price (USDT)")
+                        html.span("Amount")
+                        html.span("Total")
+                    
+                    for price, vol in sorted_asks:
+                        total = price * vol
+                        with html.div(style={"display": "flex", "justifyContent": "space-between", "color": "#f6465d", "padding": "3px 8px"}):
+                            html.span(f"{price:.4f}")
+                            html.span(f"{vol:.4f}")
+                            html.span(f"{total:.2f}")
+                    
+                    if sorted_bids and sorted_asks:
+                        spread = sorted_asks[-1][0] - sorted_bids[0][0]
+                        with html.div(style={"display": "flex", "justifyContent": "center", "color": "#eaecef", "padding": "5px", "backgroundColor": "#1e2329", "fontWeight": "bold"}):
+                            html.span(f"Spread: {spread:.2f}")
+                    
+                    for price, vol in sorted_bids:
+                        total = price * vol
+                        with html.div(style={"display": "flex", "justifyContent": "space-between", "color": "#0ecb81", "padding": "3px 8px"}):
+                            html.span(f"{price:.4f}")
+                            html.span(f"{vol:.4f}")
+                            html.span(f"{total:.2f}")
+
+            # 7. Individual Exchange Orderbooks
+            for r in data:
+                with mui.Paper(key=f"ob_{r['id']}", sx={"padding": 1, "overflow": "auto", "backgroundColor": "#0b0e11"}):
+                    mui.Typography(f"{r['id'].upper()}", variant="subtitle2", sx={"color": "#eaecef", "fontWeight": "bold"})
+                    
+                    bids = r['bids'][:5]
+                    asks = list(reversed(r['asks'][:5]))
+                    
+                    with html.div(style={"fontFamily": "monospace", "fontSize": "11px"}):
+                        for a in asks:
+                            with html.div(style={"display": "flex", "justifyContent": "space-between", "color": "#f6465d", "padding": "1px 2px"}):
+                                html.span(f"{a[0]:.2f}")
+                                html.span(f"{a[1]:.4f}")
+                        for b in bids:
+                            with html.div(style={"display": "flex", "justifyContent": "space-between", "color": "#0ecb81", "padding": "1px 2px"}):
+                                html.span(f"{b[0]:.2f}")
+                                html.span(f"{b[1]:.4f}")
+
+            # 8. Price Chart (Plotly inside Grid)
+            with mui.Paper(key="price_chart", sx={"padding": 1, "overflow": "hidden", "backgroundColor": "#0b0e11"}):
+                if ohlcv_data:
+                    dates = [datetime.fromtimestamp(x[0]/1000) for x in ohlcv_data['data']]
+                    opens = [x[1] for x in ohlcv_data['data']]
+                    highs = [x[2] for x in ohlcv_data['data']]
+                    lows = [x[3] for x in ohlcv_data['data']]
+                    closes = [x[4] for x in ohlcv_data['data']]
+
+                    fig = go.Figure(data=[go.Candlestick(x=dates,
+                                    open=opens, high=highs,
+                                    low=lows, close=closes,
+                                    increasing_line_color= '#0ECB81', decreasing_line_color= '#F6465D'
+                                    )])
+                    fig.update_layout(
+                        title=dict(text=f"Price History ({ohlcv_data['exchange'].upper()})", font=dict(color="#eaecef", size=14)),
+                        template="plotly_dark",
+                        xaxis_rangeslider_visible=False,
+                        margin=dict(t=30, b=10, l=10, r=10),
+                        paper_bgcolor="#0b0e11",
+                        plot_bgcolor="#0b0e11",
+                        font=dict(family="sans-serif", size=10, color="#eaecef"),
+                        autosize=True
+                    )
+                    
+                    # Convert to HTML for embedding
+                    plot_html = fig.to_html(include_plotlyjs='cdn', full_html=False, config={'displayModeBar': False, 'responsive': True})
+                    html.div(dangerouslySetInnerHTML={"__html": plot_html}, style={"height": "100%", "width": "100%"})
+                else:
+                    mui.Typography("Loading Price Data...", variant="subtitle1", sx={"color": "#eaecef"})
 
 ENDPOINT_MAPPING = {
     # ==================== DefiLlama ====================
@@ -941,7 +1298,46 @@ def fetch_all_data(chain_name, contract_address, period="3 months", log_placehol
 st.title("Token Tracker Metrics")
 
 # Tabs
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["Tracking log/Enpoints", "Token Tracker", "Profiler", "Dune Export", "Social Listening"])
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Tracking log/Enpoints", "Token Tracker", "Profiler", "Dune Export", "Social Listening", "CDC tracker"])
+
+with tab6:
+    st.header("CDC Tracker (Orderbook CVD)")
+    
+    # Inputs
+    c1, c2, c3 = st.columns([2, 1, 1])
+    with c1:
+        cdc_symbol = st.text_input("Symbol", value=st.session_state.cdc_active_symbol, key="cdc_sym")
+    with c2:
+        cdc_refresh = st.slider("Refresh (s)", 1, 10, 2, key="cdc_ref")
+    with c3:
+        # Run/Stop buttons
+        st.write("") # Spacer
+        st.write("") # Spacer
+        col_run, col_stop = st.columns(2)
+        if col_run.button("Run", key="cdc_run", use_container_width=True):
+            st.session_state.cdc_running = True
+            st.session_state.cdc_active_symbol = cdc_symbol
+        if col_stop.button("Stop", key="cdc_stop", use_container_width=True):
+            st.session_state.cdc_running = False
+            st.rerun()
+
+    st.markdown("---")
+
+    if st.session_state.cdc_running:
+        init_cdc_engine_if_needed(st.session_state.cdc_active_symbol)
+        
+        # Define fragment
+        @st.fragment(run_every=cdc_refresh)
+        def cdc_dashboard_container():
+            # Ensure engine is initialized
+            if st.session_state.cdc_engine:
+                data = st.session_state.cdc_engine.fetch_all()
+                ohlcv_data = st.session_state.cdc_engine.fetch_candle_history()
+                render_cdc_dashboard(data, ohlcv_data)
+            
+        cdc_dashboard_container()
+    else:
+        st.info("Enter a symbol (e.g. BTC/USDT) and click 'Run' to start monitoring.")
 
 with tab1:
     st.header("Market Data Analysis")
